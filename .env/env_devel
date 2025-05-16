@@ -1,8 +1,0 @@
-DJANGO_SETTINGS_MODULE=config.settings.production
-SECRET_KEY=appadmin123!
-
-DB_NAME=vgclinic_db
-DB_USER=vgclinic_app
-DB_PASSWORD=b0Z[drgZO:K68Q!YEtau
-DB_HOST=192.168.1.183
-DB_PORT=55432
