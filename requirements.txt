@@ -1,0 +1,7 @@
+Django==5.1.4
+django-auditlog==3.0.0
+crispy-bootstrap5==2024.10
+django-crispy-forms==2.3
+whitenoise==6.8.2
+python-dotenv==1.0.1
+gunicorn==23.0.0
