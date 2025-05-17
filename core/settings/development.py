@@ -17,8 +17,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-# CORS settings - during development
-CORS_ALLOW_ALL_ORIGINS = True  # Only in development
+# CORS settings - ONLY during development
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -29,21 +30,6 @@ DATABASES = {
         'NAME': 'db.sqlite3',
     }
 }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         'NAME': os.getenv('DB_NAME', default=''),
-#         'USER': os.getenv('DB_USER', default=''),
-#         'PASSWORD': os.getenv('DB_PASSWORD', default=''),
-#         'HOST': os.getenv('DB_HOST', default=''),
-#         'PORT': os.getenv('DB_PORT', default=''),
-#         'CONN_MAX_AGE': 600,  # connection persistence for 10 minutes
-#         # 'OPTIONS': {
-#         #     'connect_timeout': 5,
-#         # }
-#     }
-# }
 
 STATIC_ROOT = Path.joinpath(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [

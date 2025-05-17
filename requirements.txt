@@ -5,7 +5,9 @@ django-crispy-forms==2.3
 whitenoise==6.8.2
 python-dotenv==1.0.1
 gunicorn==23.0.0
-psycopg2=2.9.10
+psycopg2==2.9.10
+pillow==11.2.1
+django-filter==25.1
 djangorestframework               # Add Django REST Framework
 djangorestframework-simplejwt     # For JWT authentication
 django-cors-headers               # For handling CORS
