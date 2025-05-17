@@ -1,10 +1,11 @@
 from django.shortcuts import render
-# clinic_staff/views.py
-from rest_framework import viewsets, permissions, filters
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
 from django.db import transaction
+from django.contrib.auth import get_user_model
 
 from .models import StaffSpecialty, StaffMember, StaffLocation, AvailabilitySchedule
 from .serializers import (
@@ -12,6 +13,9 @@ from .serializers import (
     StaffLocationSerializer, AvailabilityScheduleSerializer
 )
 from platform_accounts.permissions import IsAccountMember
+from platform_accounts.models import AccountUser
+
+User = get_user_model()
 
 class StaffSpecialtyViewSet(viewsets.ModelViewSet):
     """
@@ -44,8 +48,7 @@ class StaffSpecialtyViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(account_id=account_id)
             
         return queryset.order_by('name')
-
-
+    
 class StaffMemberViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows staff members to be viewed or edited.
@@ -104,6 +107,106 @@ class StaffMemberViewSet(viewsets.ModelViewSet):
         return StaffMemberSerializer
     
     @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        """
+        Custom create method to handle creating User, AccountUser, and StaffMember.
+        Expects the following structure:
+        {
+            "user_data": {
+                "email": "user@example.com",
+                "first_name": "John",
+                "last_name": "Doe",
+                "password": "secure_password"
+            },
+            "account": 1,   # Account ID
+            "job_title": "Dentist",
+            "staff_role": "doctor",
+            ... other staff fields
+        }
+        """
+        # Extract user data
+        user_data = request.data.get('user_data', {})
+        email = user_data.get('email')
+        first_name = user_data.get('first_name')
+        last_name = user_data.get('last_name')
+        password = user_data.get('password')
+        account_id = request.data.get('account')
+        
+        # Validate required fields
+        if not all([email, account_id]):
+            return Response(
+                {'error': 'Email and account are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user with this email already exists
+        existing_user = User.objects.filter(email=email).first()
+        
+        if existing_user:
+            # User exists, check if they have an AccountUser for this account
+            account_user = AccountUser.objects.filter(
+                user=existing_user,
+                account_id=account_id
+            ).first()
+            
+            if not account_user:
+                # User exists but not in this account, create AccountUser
+                account_user = AccountUser.objects.create(
+                    user=existing_user,
+                    account_id=account_id,
+                    role='staff'
+                )
+            
+            # Check if staff member already exists for this account_user
+            existing_staff = StaffMember.objects.filter(account_user=account_user).first()
+            
+            if existing_staff:
+                return Response(
+                    {'error': 'This user is already a staff member in this account'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            # User doesn't exist, create new user
+            if not all([first_name, last_name, password]):
+                return Response(
+                    {'error': 'First name, last name, and password are required for new users'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Create the user
+            existing_user = User.objects.create_user(
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # Create the account user
+            account_user = AccountUser.objects.create(
+                user=existing_user,
+                account_id=account_id,
+                role='staff'  # Default role for staff members
+            )
+        
+        # Prepare staff member data
+        staff_data = request.data.copy()
+        staff_data['account_user'] = account_user.id
+        
+        # Remove user fields that are now handled
+        if 'user_data' in staff_data:
+            del staff_data['user_data']
+        if 'account' in staff_data:
+            del staff_data['account']
+        
+        # Create the staff member
+        serializer = self.get_serializer(data=staff_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    @transaction.atomic
     def perform_create(self, serializer):
         staff_member = serializer.save()
         
@@ -150,7 +253,19 @@ class StaffMemberViewSet(viewsets.ModelViewSet):
         locations = staff_member.location_assignments.all()
         serializer = StaffLocationSerializer(locations, many=True)
         return Response(serializer.data)
-
+    
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        """
+        Custom delete method that only removes the StaffMember record,
+        but preserves the User and AccountUser records.
+        """
+        instance = self.get_object()
+        
+        # Perform regular delete
+        self.perform_destroy(instance)
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class StaffLocationViewSet(viewsets.ModelViewSet):
     """

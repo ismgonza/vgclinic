@@ -45,6 +45,12 @@ class IsAccountMember(permissions.BasePermission):
         # Get the account from the object
         if hasattr(obj, 'account'):
             account = obj.account
+        elif hasattr(obj, 'account_user') and hasattr(obj.account_user, 'account'):
+            # Handle StaffMember objects which have account_user.account
+            account = obj.account_user.account
+        elif hasattr(obj, 'location') and hasattr(obj.location, 'account'):
+            # Handle Room objects which have location.account
+            account = obj.location.account
         else:
             account = obj
             
