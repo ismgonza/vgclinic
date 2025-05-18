@@ -38,7 +38,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     """Custom User model using email as username."""
-
+    
     username = None
     email = models.EmailField(_('email address'), unique=True)
     first_name = models.CharField(_('first name'), max_length=150)
@@ -46,6 +46,9 @@ class User(AbstractUser):
     is_active = models.BooleanField(_('active'), default=True)
     date_joined = models.DateTimeField(_('date joined'), auto_now_add=True)
     last_login = models.DateTimeField(_('last login'), blank=True, null=True)
+    
+    # Add the ID number field
+    id_number = models.CharField(_('ID number'), max_length=20, blank=True, null=True, unique=True)    
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']

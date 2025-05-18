@@ -3,7 +3,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     StaffSpecialtyViewSet, StaffMemberViewSet,
-    StaffLocationViewSet, AvailabilityScheduleViewSet
+    StaffLocationViewSet, AvailabilityScheduleViewSet,
+    StaffInvitationView, AcceptInvitationView
 )
 
 router = DefaultRouter()
@@ -14,4 +15,6 @@ router.register(r'schedules', AvailabilityScheduleViewSet, basename='availabilit
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('invite/', StaffInvitationView.as_view(), name='staff-invite'),
+    path('accept-invite/<str:token>/', AcceptInvitationView.as_view(), name='accept-staff-invite'),
 ]

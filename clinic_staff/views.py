@@ -1,10 +1,16 @@
 from django.shortcuts import render
 from rest_framework import viewsets, permissions, status, filters
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
 from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
+import uuid
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import StaffSpecialty, StaffMember, StaffLocation, AvailabilitySchedule
@@ -109,27 +115,13 @@ class StaffMemberViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
-        Custom create method to handle creating User, AccountUser, and StaffMember.
-        Expects the following structure:
-        {
-            "user_data": {
-                "email": "user@example.com",
-                "first_name": "John",
-                "last_name": "Doe",
-                "password": "secure_password"
-            },
-            "account": 1,   # Account ID
-            "job_title": "Dentist",
-            "staff_role": "doctor",
-            ... other staff fields
-        }
+        Custom create method to handle creating or associating User, AccountUser, and StaffMember.
+        Checks for existing users by email or ID number.
         """
         # Extract user data
         user_data = request.data.get('user_data', {})
         email = user_data.get('email')
-        first_name = user_data.get('first_name')
-        last_name = user_data.get('last_name')
-        password = user_data.get('password')
+        id_number = user_data.get('id_number')
         account_id = request.data.get('account')
         
         # Validate required fields
@@ -139,8 +131,13 @@ class StaffMemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if user with this email already exists
-        existing_user = User.objects.filter(email=email).first()
+        # Check if user exists by email or ID number
+        existing_user = None
+        if email:
+            existing_user = User.objects.filter(email=email).first()
+        
+        if not existing_user and id_number:
+            existing_user = User.objects.filter(id_number=id_number).first()
         
         if existing_user:
             # User exists, check if they have an AccountUser for this account
@@ -167,19 +164,28 @@ class StaffMemberViewSet(viewsets.ModelViewSet):
                 )
         else:
             # User doesn't exist, create new user
+            first_name = user_data.get('first_name')
+            last_name = user_data.get('last_name')
+            password = user_data.get('password')
+            
             if not all([first_name, last_name, password]):
                 return Response(
                     {'error': 'First name, last name, and password are required for new users'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
-            # Create the user
-            existing_user = User.objects.create_user(
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name
-            )
+            # Create the user with ID number if provided
+            user_create_data = {
+                'email': email,
+                'password': password,
+                'first_name': first_name,
+                'last_name': last_name,
+            }
+            
+            if id_number:
+                user_create_data['id_number'] = id_number
+                
+            existing_user = User.objects.create_user(**user_create_data)
             
             # Create the account user
             account_user = AccountUser.objects.create(
@@ -266,6 +272,63 @@ class StaffMemberViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class StaffInvitationView(APIView):
+    """
+    API endpoint to invite new staff members via email.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAccountMember]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        role = request.data.get('role')
+        account_id = request.data.get('account')
+        
+        if not all([email, role, account_id]):
+            return Response(
+                {'error': 'Email, role, and account are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Generate a unique token for the invitation
+        invitation_token = str(uuid.uuid4())
+        expires_at = timezone.now() + timedelta(days=7)
+        
+        # Save the invitation
+        invitation, created = StaffInvitation.objects.update_or_create(
+            email=email,
+            account_id=account_id,
+            defaults={
+                'role': role,
+                'token': invitation_token,
+                'expires_at': expires_at,
+                'invited_by': request.user
+            }
+        )
+        
+        # Send invitation email
+        invite_url = f"{settings.FRONTEND_URL}/staff/accept-invite/{invitation_token}"
+        
+        email_context = {
+            'invite_url': invite_url,
+            'account_name': invitation.account.name,
+            'role': dict(StaffMember.ROLE_CHOICES).get(role, role),
+            'expiry_date': expires_at.strftime('%Y-%m-%d')
+        }
+        
+        email_html = render_to_string('emails/staff_invitation.html', email_context)
+        email_text = render_to_string('emails/staff_invitation.txt', email_context)
+        
+        send_mail(
+            subject=f"You've been invited to join {invitation.account.name}",
+            message=email_text,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            html_message=email_html,
+            fail_silently=False
+        )
+        
+        return Response({'status': 'invitation sent'})
 
 class StaffLocationViewSet(viewsets.ModelViewSet):
     """

@@ -31,17 +31,23 @@ class StaffSpecialty(models.Model):
     def __str__(self):
         return f"{self.name} ({self.account.name})"
 
-
 class StaffMember(models.Model):
     """
     Represents a staff member in a clinic with their role and details.
     """
+    # Role codes for internationalization
+    ROLE_DOCTOR = 'doc'
+    ROLE_ASSISTANT = 'asst'
+    ROLE_RECEPTIONIST = 'recp'
+    ROLE_ADMINISTRATOR = 'admn'
+    ROLE_OTHER = 'othr'
+    
     ROLE_CHOICES = (
-        ('doctor', _('Doctor')),
-        ('assistant', _('Assistant')),
-        ('receptionist', _('Receptionist')),
-        ('administrator', _('Administrator')),
-        ('other', _('Other')),
+        (ROLE_DOCTOR, _('Doctor')),
+        (ROLE_ASSISTANT, _('Assistant')),
+        (ROLE_RECEPTIONIST, _('Receptionist')),
+        (ROLE_ADMINISTRATOR, _('Administrator')),
+        (ROLE_OTHER, _('Other')),
     )
     
     account_user = models.OneToOneField(
@@ -99,6 +105,55 @@ class StaffMember(models.Model):
     def email(self):
         return self.account_user.user.email
 
+class StaffInvitation(models.Model):
+    """
+    Invitations for staff members to join a clinic.
+    """
+    # Status codes for internationalization
+    STATUS_PENDING = 'pend'
+    STATUS_ACCEPTED = 'acpt'
+    STATUS_DECLINED = 'decl'
+    STATUS_EXPIRED = 'expd'
+    
+    STATUS_CHOICES = (
+        (STATUS_PENDING, _('Pending')),
+        (STATUS_ACCEPTED, _('Accepted')),
+        (STATUS_DECLINED, _('Declined')),
+        (STATUS_EXPIRED, _('Expired')),
+    )
+    
+    account = models.ForeignKey(
+        'platform_accounts.Account',
+        on_delete=models.CASCADE,
+        related_name='staff_invitations',
+        verbose_name=_('account')
+    )
+    email = models.EmailField(_('email'))
+    role = models.CharField(_('role'), max_length=20, choices=StaffMember.ROLE_CHOICES)
+    token = models.CharField(_('token'), max_length=64, unique=True)
+    status = models.CharField(
+        _('status'), 
+        max_length=4, 
+        choices=STATUS_CHOICES, 
+        default=STATUS_PENDING
+    )
+    invited_by = models.ForeignKey(
+        'platform_users.User',
+        on_delete=models.SET_NULL,
+        related_name='sent_staff_invitations',
+        null=True,
+        verbose_name=_('invited by')
+    )
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    expires_at = models.DateTimeField(_('expires at'))
+    
+    # For existing users who are invited
+    existing_user = models.BooleanField(_('existing user'), default=False)
+    
+    class Meta:
+        verbose_name = _('staff invitation')
+        verbose_name_plural = _('staff invitations')
+        unique_together = (('email', 'account'),)
 
 class StaffLocation(models.Model):
     """
