@@ -13,13 +13,14 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .models import StaffSpecialty, StaffMember, StaffLocation, AvailabilitySchedule
+from .models import StaffSpecialty, StaffMember, StaffLocation, AvailabilitySchedule, StaffInvitation
 from .serializers import (
     StaffSpecialtySerializer, StaffMemberSerializer, StaffMemberListSerializer,
     StaffLocationSerializer, AvailabilityScheduleSerializer
 )
 from platform_accounts.permissions import IsAccountMember
 from platform_accounts.models import AccountUser
+from .permissions import StaffMemberPermission, InvitationPermission
 
 User = get_user_model()
 
@@ -290,6 +291,9 @@ class StaffInvitationView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check if user already exists
+        existing_user = User.objects.filter(email=email).exists()
+        
         # Generate a unique token for the invitation
         invitation_token = str(uuid.uuid4())
         expires_at = timezone.now() + timedelta(days=7)
@@ -302,7 +306,9 @@ class StaffInvitationView(APIView):
                 'role': role,
                 'token': invitation_token,
                 'expires_at': expires_at,
-                'invited_by': request.user
+                'invited_by': request.user,
+                'existing_user': existing_user,
+                'status': StaffInvitation.STATUS_PENDING
             }
         )
         
@@ -313,11 +319,14 @@ class StaffInvitationView(APIView):
             'invite_url': invite_url,
             'account_name': invitation.account.name,
             'role': dict(StaffMember.ROLE_CHOICES).get(role, role),
-            'expiry_date': expires_at.strftime('%Y-%m-%d')
+            'expiry_date': expires_at.strftime('%Y-%m-%d'),
+            'existing_user': existing_user
         }
         
-        email_html = render_to_string('emails/staff_invitation.html', email_context)
-        email_text = render_to_string('emails/staff_invitation.txt', email_context)
+        # Choose the appropriate email template based on whether user exists
+        template_suffix = 'existing' if existing_user else 'new'
+        email_html = render_to_string(f'emails/staff_invitation_{template_suffix}.html', email_context)
+        email_text = render_to_string(f'emails/staff_invitation_{template_suffix}.txt', email_context)
         
         send_mail(
             subject=f"You've been invited to join {invitation.account.name}",
@@ -328,7 +337,7 @@ class StaffInvitationView(APIView):
             fail_silently=False
         )
         
-        return Response({'status': 'invitation sent'})
+        return Response({'status': 'invitation sent', 'existing_user': existing_user})
 
 class StaffLocationViewSet(viewsets.ModelViewSet):
     """
@@ -400,3 +409,139 @@ class AvailabilityScheduleViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(location_id=location_id)
             
         return queryset.order_by('staff', 'location', 'day_of_week', 'start_time')
+    
+class AcceptInvitationView(APIView):
+    """
+    API endpoint to verify and accept a staff invitation.
+    """
+    permission_classes = [InvitationPermission]
+    
+    def get(self, request, token):
+        """Verify if the invitation is valid."""
+        try:
+            invitation = StaffInvitation.objects.get(token=token, status=StaffInvitation.STATUS_PENDING)
+            
+            # Check if the invitation has expired
+            if invitation.expires_at < timezone.now():
+                invitation.status = StaffInvitation.STATUS_EXPIRED
+                invitation.save()
+                return Response(
+                    {'error': 'This invitation has expired.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if the user already exists
+            user_exists = User.objects.filter(email=invitation.email).exists()
+            
+            return Response({
+                'email': invitation.email,
+                'role': invitation.role,
+                'role_display': dict(StaffMember.ROLE_CHOICES).get(invitation.role),
+                'account_name': invitation.account.name,
+                'existing_user': user_exists
+            })
+            
+        except StaffInvitation.DoesNotExist:
+            return Response(
+                {'error': 'This invitation is invalid or has already been used.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @transaction.atomic
+    def post(self, request, token):
+        """Accept the invitation and create/update the staff member."""
+        try:
+            invitation = StaffInvitation.objects.get(token=token, status=StaffInvitation.STATUS_PENDING)
+            
+            # Check if the invitation has expired
+            if invitation.expires_at < timezone.now():
+                invitation.status = StaffInvitation.STATUS_EXPIRED
+                invitation.save()
+                return Response(
+                    {'error': 'This invitation has expired.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if the user already exists
+            existing_user = User.objects.filter(email=invitation.email).first()
+            
+            if existing_user:
+                # For existing users, they need to be logged in
+                if not request.user.is_authenticated:
+                    return Response(
+                        {'error': 'You must be logged in to accept this invitation as an existing user.'},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+                
+                # Verify email matches
+                if request.user.email != invitation.email:
+                    return Response(
+                        {'error': 'This invitation was sent to a different email address.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
+                user = request.user
+            else:
+                # Create new user
+                user_data = request.data.get('user_data', {})
+                
+                if not all([
+                    user_data.get('first_name'),
+                    user_data.get('last_name'),
+                    user_data.get('id_number'),
+                    user_data.get('password')
+                ]):
+                    return Response(
+                        {'error': 'All user information is required.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Check if ID number is already in use
+                if User.objects.filter(id_number=user_data.get('id_number')).exists():
+                    return Response(
+                        {'error': 'This ID number is already registered.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Create the user
+                user = User.objects.create_user(
+                    email=invitation.email,
+                    password=user_data.get('password'),
+                    first_name=user_data.get('first_name'),
+                    last_name=user_data.get('last_name'),
+                    id_number=user_data.get('id_number')
+                )
+            
+            # Create or get AccountUser
+            account_user, created = AccountUser.objects.get_or_create(
+                user=user,
+                account=invitation.account,
+                defaults={'role': 'staff'}
+            )
+            
+            # Create StaffMember if it doesn't exist
+            staff_data = request.data.get('staff_data', {})
+            staff_member, created = StaffMember.objects.get_or_create(
+                account_user=account_user,
+                defaults={
+                    'job_title': staff_data.get('job_title', ''),
+                    'staff_role': invitation.role,
+                    'phone': staff_data.get('phone', ''),
+                    'license_number': staff_data.get('license_number', ''),
+                    'is_active': True,
+                    'can_book_appointments': True,
+                    'appointment_color': staff_data.get('appointment_color', '#3788d8')
+                }
+            )
+            
+            # Update invitation status
+            invitation.status = StaffInvitation.STATUS_ACCEPTED
+            invitation.save()
+            
+            return Response({'status': 'invitation accepted', 'staff_id': staff_member.id})
+            
+        except StaffInvitation.DoesNotExist:
+            return Response(
+                {'error': 'This invitation is invalid or has already been used.'},
+                status=status.HTTP_404_NOT_FOUND
+            )

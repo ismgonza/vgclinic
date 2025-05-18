@@ -44,6 +44,8 @@ DATABASES = {
     }
 }
 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
 STATIC_ROOT = '/app/staticfiles'
 STATICFILES_DIRS = [
     Path.joinpath(BASE_DIR, 'static'),
