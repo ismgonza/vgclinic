@@ -1,0 +1,1124 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-05-19 11:28-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? "
+"1 : 2;\n"
+#: app_backup/clinic_catalog/models.py:15
+#: app_backup/clinic_catalog/models.py:63
+#: app_backup/clinic_locations/models.py:14
+#: app_backup/clinic_staff/models.py:15 app_backup/clinic_staff/models.py:129
+#: app_backup/platform_accounts/models.py:39
+#: app_backup/platform_accounts/models.py:76
+#: app_backup/platform_accounts/models.py:112
+#: app_backup/platform_contracts/models.py:26
+msgid "account"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:17
+#: app_backup/clinic_catalog/models.py:66
+#: app_backup/clinic_locations/models.py:16
+#: app_backup/clinic_locations/models.py:54
+#: app_backup/clinic_staff/models.py:17
+#: app_backup/platform_accounts/models.py:17
+#: app_backup/platform_services/models.py:21
+#: app_backup/platform_services/models.py:50
+#: app_backup/platform_services/models.py:85
+msgid "name"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:18
+#: app_backup/clinic_catalog/models.py:67 app_backup/clinic_staff/models.py:18
+#: app_backup/platform_accounts/models.py:19
+#: app_backup/platform_contracts/models.py:246
+#: app_backup/platform_services/models.py:24
+#: app_backup/platform_services/models.py:52
+#: app_backup/platform_services/models.py:87
+msgid "description"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:25
+msgid "parent category"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:27
+#: app_backup/clinic_catalog/models.py:99
+#: app_backup/clinic_locations/models.py:29
+#: app_backup/clinic_locations/models.py:57
+#: app_backup/clinic_staff/models.py:19 app_backup/clinic_staff/models.py:79
+#: app_backup/platform_accounts/models.py:85
+#: app_backup/platform_services/models.py:26
+#: app_backup/platform_services/models.py:54
+#: app_backup/platform_services/models.py:112
+#: app_backup/platform_users/models.py:46
+msgid "active"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:30
+msgid "display order"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:33
+#: app_backup/clinic_catalog/models.py:102
+#: app_backup/clinic_locations/models.py:30
+#: app_backup/clinic_locations/models.py:61
+#: app_backup/clinic_staff/models.py:22 app_backup/clinic_staff/models.py:87
+#: app_backup/clinic_staff/models.py:147 app_backup/clinic_staff/models.py:178
+#: app_backup/platform_accounts/models.py:26
+#: app_backup/platform_accounts/models.py:125
+#: app_backup/platform_contracts/models.py:69
+#: app_backup/platform_contracts/models.py:127
+#: app_backup/platform_contracts/models.py:164
+#: app_backup/platform_contracts/models.py:224
+#: app_backup/platform_services/models.py:33
+#: app_backup/platform_services/models.py:61
+#: app_backup/platform_services/models.py:113
+msgid "created at"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:34
+#: app_backup/clinic_catalog/models.py:103
+#: app_backup/clinic_locations/models.py:31
+#: app_backup/clinic_locations/models.py:62
+#: app_backup/clinic_staff/models.py:23 app_backup/clinic_staff/models.py:88
+#: app_backup/platform_accounts/models.py:27
+#: app_backup/platform_contracts/models.py:70
+#: app_backup/platform_contracts/models.py:165
+#: app_backup/platform_contracts/models.py:225
+#: app_backup/platform_services/models.py:34
+#: app_backup/platform_services/models.py:62
+#: app_backup/platform_services/models.py:114
+msgid "updated at"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:37
+#: app_backup/clinic_catalog/models.py:74
+#: app_backup/platform_services/models.py:25
+msgid "category"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:38
+msgid "categories"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:53
+msgid "Service"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:54
+msgid "Procedure"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:55
+msgid "Product"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:56
+msgid "Package"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:65
+#: app_backup/platform_services/models.py:22
+#: app_backup/platform_services/models.py:51
+#: app_backup/platform_services/models.py:86
+msgid "code"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:76
+msgid "type"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:80
+msgid "price"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:86
+msgid "variable price"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:88
+msgid "If enabled, the price can be adjusted when creating a procedure"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:91
+msgid "tax rate"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:106
+#: app_backup/clinic_catalog/models.py:123
+msgid "catalog item"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:107
+msgid "catalog items"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:129
+msgid "included items"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:134
+msgid "discount type"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:137
+msgid "Percentage"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:138
+msgid "Fixed Amount"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:143
+msgid "discount value"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:151
+#: app_backup/clinic_catalog/models.py:166
+msgid "package"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:152
+msgid "packages"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:172
+msgid "item"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:174
+#: app_backup/platform_contracts/models.py:247
+msgid "quantity"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:177
+msgid "package item"
+msgstr ""
+
+#: app_backup/clinic_catalog/models.py:178
+msgid "package items"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:19
+#: app_backup/clinic_staff/models.py:131
+msgid "email"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:20
+#: app_backup/platform_accounts/models.py:23
+msgid "phone number"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:23
+msgid "province"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:24
+msgid "canton"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:25
+msgid "district"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:26
+msgid "detailed address"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:34
+#: app_backup/clinic_locations/models.py:52
+#: app_backup/clinic_staff/models.py:173 app_backup/clinic_staff/models.py:226
+msgid "location"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:35
+msgid "locations"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:58
+msgid "private"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:65
+msgid "room"
+msgstr ""
+
+#: app_backup/clinic_locations/models.py:66
+msgid "rooms"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:26
+msgid "specialty"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:27 app_backup/clinic_staff/models.py:65
+msgid "specialties"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:46
+#: app_backup/platform_accounts/models.py:66 platform_accounts/models.py:58
+msgid "Doctor"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:47
+#: app_backup/platform_accounts/models.py:67 platform_accounts/models.py:59
+msgid "Assistant"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:48
+msgid "Receptionist"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:49
+#: app_backup/platform_accounts/models.py:63 platform_accounts/models.py:57
+msgid "Administrator"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:50
+msgid "Other"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:57
+#: app_backup/platform_accounts/models.py:89
+msgid "account user"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:59
+msgid "job title"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:60 app_backup/clinic_staff/models.py:132
+#: app_backup/platform_accounts/models.py:84
+#: app_backup/platform_accounts/models.py:115
+msgid "role"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:67
+msgid "license number"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:72
+msgid "assigned locations"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:76
+msgid "phone"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:80
+msgid "can book appointments"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:83
+msgid "appointment color"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:84
+msgid "Color code for calendar display"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:91 app_backup/clinic_staff/models.py:167
+#: app_backup/clinic_staff/models.py:220
+msgid "staff member"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:92
+msgid "staff members"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:119
+#: app_backup/platform_accounts/models.py:12
+#: app_backup/platform_accounts/models.py:102
+#: app_backup/platform_contracts/models.py:194 platform_accounts/models.py:10
+msgid "Pending"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:120
+#: app_backup/platform_accounts/models.py:103
+msgid "Accepted"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:121
+#: app_backup/platform_accounts/models.py:104
+msgid "Declined"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:122
+#: app_backup/platform_accounts/models.py:105
+#: app_backup/platform_contracts/models.py:19
+msgid "Expired"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:133
+msgid "token"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:135
+#: app_backup/platform_accounts/models.py:25
+#: app_backup/platform_accounts/models.py:117
+#: app_backup/platform_contracts/models.py:34
+#: app_backup/platform_contracts/models.py:207
+msgid "status"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:145
+#: app_backup/platform_accounts/models.py:123
+msgid "invited by"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:148
+#: app_backup/platform_accounts/models.py:126
+#: app_backup/platform_contracts/models.py:128
+msgid "expires at"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:151
+msgid "existing user"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:152
+msgid "existing user ID"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:155
+msgid "staff invitation"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:156
+msgid "staff invitations"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:175
+msgid "primary location"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:181
+msgid "staff location"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:182
+msgid "staff locations"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:207
+msgid "Monday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:208
+msgid "Tuesday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:209
+msgid "Wednesday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:210
+msgid "Thursday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:211
+msgid "Friday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:212
+msgid "Saturday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:213
+msgid "Sunday"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:228
+msgid "day of week"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:229
+msgid "start time"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:230
+msgid "end time"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:231
+msgid "available"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:234
+msgid "availability schedule"
+msgstr ""
+
+#: app_backup/clinic_staff/models.py:235
+msgid "availability schedules"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:11
+#: app_backup/platform_contracts/models.py:15 platform_accounts/models.py:9
+msgid "Active"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:13 platform_accounts/models.py:11
+msgid "Suspended"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:14
+msgid "Terminated"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:18
+msgid "slug"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:20
+msgid "logo"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:21
+msgid "website"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:22
+msgid "contact email"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:24
+msgid "address"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:35
+msgid "owner"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:40
+msgid "accounts"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:62 platform_accounts/models.py:56
+msgid "Owner"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:64
+msgid "Manager"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:65
+msgid "Staff"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:68
+msgid "Read-only"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:82
+#: app_backup/platform_users/models.py:66
+msgid "user"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:86
+msgid "joined at"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:90
+msgid "account users"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:114
+#: app_backup/platform_users/models.py:43
+msgid "email address"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:116
+msgid "invitation code"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:129
+msgid "account invitation"
+msgstr ""
+
+#: app_backup/platform_accounts/models.py:130
+msgid "account invitations"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:16
+msgid "Trial"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:17
+msgid "Past Due"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:18
+#: app_backup/platform_contracts/models.py:197
+msgid "Canceled"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:32
+#: app_backup/platform_services/models.py:117
+msgid "plan"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:37
+msgid "start date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:38
+msgid "end date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:39
+msgid "trial end"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:40
+msgid "canceled at"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:43
+msgid "is paid"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:44
+msgid "next billing date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:45
+#: app_backup/platform_services/models.py:95
+msgid "billing period"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:47
+msgid "price override"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:49
+msgid "Custom price for this subscription (if different from plan price)"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:52
+msgid "auto renew"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:53
+msgid "cancellation reason"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:54
+#: app_backup/platform_contracts/models.py:223
+msgid "notes"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:57
+msgid "payment provider"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:58
+msgid "external ID"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:59
+msgid "ID used by the payment provider"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:67
+#: app_backup/platform_contracts/models.py:125
+msgid "created by"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:73
+#: app_backup/platform_contracts/models.py:113
+#: app_backup/platform_contracts/models.py:156
+#: app_backup/platform_contracts/models.py:204
+msgid "subscription"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:74
+msgid "subscriptions"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:105
+msgid "Grant Access"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:106
+msgid "Restrict Access"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:115
+msgid "feature code"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:116
+msgid "override type"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:117
+msgid "reason"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:131
+msgid "feature override"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:132
+msgid "feature overrides"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:144 platform_users/models.py:114
+msgid "Users"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:145
+msgid "Locations"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:146
+msgid "Storage (GB)"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:147
+msgid "API Calls"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:148
+msgid "SMS Messages"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:149
+msgid "Email Messages"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:158
+msgid "quota type"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:159
+msgid "limit"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:160
+msgid "current usage"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:163
+msgid "last reset date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:168
+msgid "usage quota"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:169
+msgid "usage quotas"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:193
+msgid "Draft"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:195
+msgid "Paid"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:196
+msgid "Overdue"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:206
+msgid "invoice number"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:209
+#: app_backup/platform_contracts/models.py:249
+msgid "amount"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:210
+msgid "tax amount"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:211
+msgid "total amount"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:214
+msgid "issue date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:215
+msgid "due date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:216
+msgid "paid date"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:219
+msgid "payment method"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:220
+msgid "payment reference"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:228
+#: app_backup/platform_contracts/models.py:244
+msgid "invoice"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:229
+msgid "invoices"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:248
+msgid "unit price"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:252
+msgid "invoice item"
+msgstr ""
+
+#: app_backup/platform_contracts/models.py:253
+msgid "invoice items"
+msgstr ""
+
+#: app_backup/platform_services/models.py:11
+msgid "Core Features"
+msgstr ""
+
+#: app_backup/platform_services/models.py:12
+msgid "Patient Management"
+msgstr ""
+
+#: app_backup/platform_services/models.py:13
+msgid "Appointment Scheduling"
+msgstr ""
+
+#: app_backup/platform_services/models.py:14
+msgid "Billing and Payments"
+msgstr ""
+
+#: app_backup/platform_services/models.py:15
+msgid "Reporting and Analytics"
+msgstr ""
+
+#: app_backup/platform_services/models.py:16
+msgid "Communication"
+msgstr ""
+
+#: app_backup/platform_services/models.py:17
+msgid "Integrations"
+msgstr ""
+
+#: app_backup/platform_services/models.py:18
+msgid "Advanced Features"
+msgstr ""
+
+#: app_backup/platform_services/models.py:23
+msgid "Unique identifier used in permission checks"
+msgstr ""
+
+#: app_backup/platform_services/models.py:29
+#: app_backup/platform_services/models.py:57
+msgid "icon"
+msgstr ""
+
+#: app_backup/platform_services/models.py:30
+#: app_backup/platform_services/models.py:58
+#: app_backup/platform_services/models.py:109
+msgid "UI display order"
+msgstr ""
+
+#: app_backup/platform_services/models.py:37
+msgid "feature"
+msgstr ""
+
+#: app_backup/platform_services/models.py:38
+msgid "features"
+msgstr ""
+
+#: app_backup/platform_services/models.py:65
+msgid "service"
+msgstr ""
+
+#: app_backup/platform_services/models.py:66
+msgid "services"
+msgstr ""
+
+#: app_backup/platform_services/models.py:79
+msgid "Monthly"
+msgstr ""
+
+#: app_backup/platform_services/models.py:80
+msgid "Quarterly"
+msgstr ""
+
+#: app_backup/platform_services/models.py:81
+msgid "Bi-Annual"
+msgstr ""
+
+#: app_backup/platform_services/models.py:82
+msgid "Annual"
+msgstr ""
+
+#: app_backup/platform_services/models.py:90
+msgid "Additional features not included in the selected services"
+msgstr ""
+
+#: app_backup/platform_services/models.py:93
+msgid "free plan"
+msgstr ""
+
+#: app_backup/platform_services/models.py:94
+msgid "base price"
+msgstr ""
+
+#: app_backup/platform_services/models.py:99
+msgid "maximum users"
+msgstr ""
+
+#: app_backup/platform_services/models.py:100
+msgid "Maximum number of users allowed"
+msgstr ""
+
+#: app_backup/platform_services/models.py:101
+msgid "maximum locations"
+msgstr ""
+
+#: app_backup/platform_services/models.py:102
+msgid "Maximum number of locations/branches"
+msgstr ""
+
+#: app_backup/platform_services/models.py:103
+msgid "maximum storage (GB)"
+msgstr ""
+
+#: app_backup/platform_services/models.py:104
+msgid "Maximum storage in gigabytes"
+msgstr ""
+
+#: app_backup/platform_services/models.py:107
+msgid "featured plan"
+msgstr ""
+
+#: app_backup/platform_services/models.py:108
+msgid "publicly visible"
+msgstr ""
+
+#: app_backup/platform_services/models.py:118
+msgid "plans"
+msgstr ""
+
+#: app_backup/platform_users/admin.py:11
+msgid "Personal info"
+msgstr ""
+
+#: app_backup/platform_users/admin.py:12
+msgid "Permissions"
+msgstr ""
+
+#: app_backup/platform_users/models.py:44
+msgid "first name"
+msgstr ""
+
+#: app_backup/platform_users/models.py:45
+msgid "last name"
+msgstr ""
+
+#: app_backup/platform_users/models.py:47
+msgid "date joined"
+msgstr ""
+
+#: app_backup/platform_users/models.py:48
+msgid "last login"
+msgstr ""
+
+#: app_backup/platform_users/models.py:51
+msgid "ID number"
+msgstr ""
+
+#: app_backup/platform_users/models.py:67
+msgid "users"
+msgstr ""
+
+#: core/settings/base.py:131
+msgid "English"
+msgstr ""
+
+#: core/settings/base.py:132
+msgid "Spanish"
+msgstr ""
+
+#: platform_accounts/models.py:19
+msgid "Account ID"
+msgstr ""
+
+#: platform_accounts/models.py:21
+msgid "Account Name"
+msgstr ""
+
+#: platform_accounts/models.py:23
+msgid "Account Logo"
+msgstr ""
+
+#: platform_accounts/models.py:28
+msgid "Website"
+msgstr ""
+
+#: platform_accounts/models.py:29
+msgid "Email"
+msgstr ""
+
+#: platform_accounts/models.py:30
+msgid "Phone"
+msgstr ""
+
+#: platform_accounts/models.py:31
+msgid "Address"
+msgstr ""
+
+#: platform_accounts/models.py:33
+msgid "Status"
+msgstr ""
+
+#: platform_accounts/models.py:39
+msgid "Is Platform Account"
+msgstr ""
+
+#: platform_accounts/models.py:41
+msgid ""
+"Indicates if this is a full platform account or just an external reference"
+msgstr ""
+
+#: platform_accounts/models.py:43 platform_accounts/models.py:117
+msgid "Created At"
+msgstr ""
+
+#: platform_accounts/models.py:49 platform_accounts/models.py:92
+msgid "Account"
+msgstr ""
+
+#: platform_accounts/models.py:50
+msgid "Accounts"
+msgstr ""
+
+#: platform_accounts/models.py:60
+msgid "Read Only"
+msgstr ""
+
+#: platform_accounts/models.py:67
+msgid "Role ID"
+msgstr ""
+
+#: platform_accounts/models.py:69
+msgid "Role Name"
+msgstr ""
+
+#: platform_accounts/models.py:70
+msgid "Description"
+msgstr ""
+
+#: platform_accounts/models.py:76 platform_accounts/models.py:97
+msgid "Role"
+msgstr ""
+
+#: platform_accounts/models.py:77
+msgid "Roles"
+msgstr ""
+
+#: platform_accounts/models.py:86 platform_users/models.py:113
+msgid "User"
+msgstr ""
+
+#: platform_accounts/models.py:100
+msgid "Color"
+msgstr ""
+
+#: platform_accounts/models.py:103
+msgid "Color code for calendar representation (e.g., #FF5733)"
+msgstr ""
+
+#: platform_accounts/models.py:106
+msgid "Phone Number"
+msgstr ""
+
+#: platform_accounts/models.py:110
+msgid "Contact phone number specific to this account"
+msgstr ""
+
+#: platform_accounts/models.py:113
+msgid "Active in Account"
+msgstr ""
+
+#: platform_accounts/models.py:115
+msgid "Indicates if the user is active in this specific account"
+msgstr ""
+
+#: platform_accounts/models.py:120
+msgid "Account User"
+msgstr ""
+
+#: platform_accounts/models.py:121
+msgid "Account Users"
+msgstr ""
+
+#: platform_users/models.py:11
+msgid "The Email field must be set"
+msgstr ""
+
+#: platform_users/models.py:13
+msgid "The ID Number field must be set"
+msgstr ""
+
+#: platform_users/models.py:28
+msgid "Superuser must have is_staff=True."
+msgstr ""
+
+#: platform_users/models.py:30
+msgid "Superuser must have is_superuser=True."
+msgstr ""
+
+#: platform_users/models.py:37
+msgid "Cédula"
+msgstr ""
+
+#: platform_users/models.py:38
+msgid "DIMEX"
+msgstr ""
+
+#: platform_users/models.py:45
+msgid "ID Type"
+msgstr ""
+
+#: platform_users/models.py:54 platform_users/models.py:89
+msgid "Cédula must be exactly 9 digits"
+msgstr ""
+
+#: platform_users/models.py:58 platform_users/models.py:96
+msgid "DIMEX must be 11 or 12 digits"
+msgstr ""
+
+#: platform_users/models.py:62
+msgid "ID Number"
+msgstr ""
+
+#: platform_users/models.py:65
+msgid "Cédula (9 digits) or DIMEX (11-12 digits)"
+msgstr ""
+
+#: platform_users/models.py:68
+msgid "Email Address"
+msgstr ""
