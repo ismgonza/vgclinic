@@ -1,8 +1,0 @@
-from django.apps import AppConfig
-
-class PlatformAccountsConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'platform_accounts'
-    
-    def ready(self):
-        import platform_accounts.signals  # Import signals

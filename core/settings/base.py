@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -21,24 +22,23 @@ INSTALLED_APPS = [
     
     # Platform Side
     'platform_accounts',
-    'platform_analytics',
-    'platform_billing',
-    'platform_contracts',
-    'platform_notifications',
-    'platform_services',
+    # 'platform_analytics',
+    # 'platform_billing',
+    # 'platform_contracts',
+    # 'platform_notifications',
+    # 'platform_services',
     'platform_users',
 
     # Clinic Side
-    'clinic_analytics',
-    'clinic_appointments',
-    'clinic_billing',
-    'clinic_catalog',
-    'clinic_locations',
-    'clinic_notifications',
-    'clinic_patients',
-    'clinic_procedures',
-    'clinic_specialties',
-    'clinic_staff',
+    # 'clinic_analytics',
+    # 'clinic_appointments',
+    # 'clinic_billing',
+    # 'clinic_catalog',
+    # 'clinic_locations',
+    # 'clinic_notifications',
+    # 'clinic_patients',
+    # 'clinic_procedures',
+    # 'clinic_specialties',
     
     # Django REST Framework
     'rest_framework',
@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'auditlog.middleware.AuditlogMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -116,15 +117,26 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
-
+LANGUAGE_CODE = 'en-us'  # Default language
 TIME_ZONE = 'America/Costa_Rica'
-# TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
+USE_L10N = True  # Format dates and numbers according to locale
 USE_TZ = True
 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
+# Add language settings
+from django.utils.translation import gettext_lazy as _
+LANGUAGES = [
+    ('en', _('English')),
+    ('es', _('Spanish')),
+    # Add more languages as needed
+]
+
+# Define where Django should look for translations
+LOCALE_PATHS = [
+    Path.joinpath(BASE_DIR, 'locale'),
+]
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

@@ -20,7 +20,6 @@ ALLOWED_HOSTS = ['*']
 # CORS settings - ONLY during development
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases

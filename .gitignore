@@ -26,3 +26,6 @@ static/*
 env/ 
 venv/ 
 ENV/
+
+# Misc
+app_backup/
