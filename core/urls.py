@@ -5,14 +5,21 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 from .api import schema_view
+from .dashboard import dashboard_stats, account_list
+from platform_users.serializers import CustomTokenObtainPairView
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Authentication
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # Dashboard APIs
+    path('api/clinic/dashboard/stats/', dashboard_stats, name='dashboard-stats'),
+    path('api/platform/accounts/list/', account_list, name='account-list'),
     
+    # Authentication
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+   
     # API Documentation
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('api/redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
