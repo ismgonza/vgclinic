@@ -4,6 +4,31 @@ from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 from platform_accounts.models import Account
 
+class Specialty(models.Model):
+    """Model representing a medical specialty offered by the clinic."""
+    account = models.ForeignKey(
+        Account, 
+        on_delete=models.CASCADE, 
+        related_name='specialties',
+        verbose_name=_('account')
+    )
+    name = models.CharField(_('name'), max_length=100)
+    code = models.CharField(_('code'), max_length=50)
+    description = models.TextField(_('description'), blank=True)
+    is_active = models.BooleanField(_('active'), default=True)
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+    
+    class Meta:
+        verbose_name = _('specialty')
+        verbose_name_plural = _('specialties')
+        unique_together = ['account', 'code']  # Code must be unique per account
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name}"
+
+
 class CatalogItem(models.Model):
     """Model representing a service or product in the clinic's catalog."""
     account = models.ForeignKey(
@@ -11,6 +36,12 @@ class CatalogItem(models.Model):
         on_delete=models.CASCADE, 
         related_name='catalog_items',
         verbose_name=_('account')
+    )
+    specialty = models.ForeignKey(
+        Specialty,
+        on_delete=models.CASCADE,
+        related_name='catalog_items',
+        verbose_name=_('specialty')
     )
     code = models.CharField(_('code'), max_length=50)
     name = models.CharField(_('name'), max_length=255)

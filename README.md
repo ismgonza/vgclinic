@@ -126,8 +126,8 @@ The project supports multiple languages through Django's translation system:
   - ✅ `clinic_catalog`
   - ✅ `clinic_locations`
   - ✅ `clinic_patients`
-  - ⬜ `clinic_procedures`
+  - ✅ `clinic_billing`
+  - ✅ `clinic_treatments`
   - ⬜ `clinic_appointments`
-  - ⬜ `clinic_billing`
   - ⬜ `clinic_analytics`
   - ⬜ `clinic_notifications`

@@ -35,9 +35,9 @@ INSTALLED_APPS = [
     'clinic_billing',
     'clinic_catalog',
     'clinic_locations',
+    'clinic_treatments',
     # 'clinic_notifications',
     'clinic_patients',
-    # 'clinic_procedures',
     # 'clinic_specialties',
     
     # Django REST Framework
