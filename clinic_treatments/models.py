@@ -40,7 +40,7 @@ class Treatment(models.Model):
         verbose_name=_('doctor')
     )
     location = models.ForeignKey(
-        'clinic_locations.Location', 
+        'clinic_locations.Branch', 
         on_delete=models.PROTECT, 
         null=True, 
         blank=True,

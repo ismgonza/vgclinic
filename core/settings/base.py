@@ -21,24 +21,23 @@ INSTALLED_APPS = [
     'django_filters',
     
     # Platform Side
-    'platform_accounts',
-    # 'platform_analytics',
-    # 'platform_billing',
-    'platform_contracts',
-    # 'platform_notifications',
-    'platform_services',
     'platform_users',
+    'platform_accounts',
+    'platform_services',
+    'platform_contracts',
+    # 'platform_billing',
+    # 'platform_analytics',
+    # 'platform_notifications',
 
     # Clinic Side
-    # 'clinic_analytics',
-    # 'clinic_appointments',
     'clinic_billing',
+    'clinic_patients',
     'clinic_catalog',
     'clinic_locations',
     'clinic_treatments',
+    # 'clinic_appointments',
     # 'clinic_notifications',
-    'clinic_patients',
-    # 'clinic_specialties',
+    # 'clinic_analytics',
     
     # Django REST Framework
     'rest_framework',
@@ -156,3 +155,7 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 AUTH_USER_MODEL = 'platform_users.User'
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = Path.joinpath(BASE_DIR, 'media')

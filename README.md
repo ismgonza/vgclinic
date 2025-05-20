@@ -118,9 +118,9 @@ The project supports multiple languages through Django's translation system:
   - ✅ `platform_accounts`
   - ✅ `platform_contracts`
   - ✅ `platform_services`
-  - ⬜ `platform_analytics`
   - ⬜ `platform_billing`
   - ⬜ `platform_notifications`
+  - ⬜ `platform_analytics`
 
 - **Clinic Operations**
   - ✅ `clinic_catalog`
@@ -129,5 +129,5 @@ The project supports multiple languages through Django's translation system:
   - ✅ `clinic_billing`
   - ✅ `clinic_treatments`
   - ⬜ `clinic_appointments`
-  - ⬜ `clinic_analytics`
   - ⬜ `clinic_notifications`
+  - ⬜ `clinic_analytics`
