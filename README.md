@@ -116,19 +116,18 @@ The project supports multiple languages through Django's translation system:
 - **Core Platform**
   - ✅ `platform_users`
   - ✅ `platform_accounts`
+  - ✅ `platform_contracts`
+  - ✅ `platform_services`
   - ⬜ `platform_analytics`
   - ⬜ `platform_billing`
-  - ⬜ `platform_contracts`
   - ⬜ `platform_notifications`
-  - ⬜ `platform_services`
 
 - **Clinic Operations**
-  - ⬜ `clinic_analytics`
+  - ✅ `clinic_catalog`
+  - ✅ `clinic_locations`
+  - ✅ `clinic_patients`
+  - ⬜ `clinic_procedures`
   - ⬜ `clinic_appointments`
   - ⬜ `clinic_billing`
-  - ⬜ `clinic_catalog`
-  - ⬜ `clinic_locations`
+  - ⬜ `clinic_analytics`
   - ⬜ `clinic_notifications`
-  - ⬜ `clinic_patients`
-  - ⬜ `clinic_procedures`
-  - ⬜ `clinic_specialties`
