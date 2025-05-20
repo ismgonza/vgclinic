@@ -34,8 +34,9 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     """Custom user model that uses email as username and ID number as primary key."""
     ID_TYPE_CHOICES = [
-        ('cedula', _('Cédula')),
-        ('dimex', _('DIMEX')),
+        ('01', _('Cédula')),
+        ('02', _('DIMEX')),
+        # Future ID types can be added here: '03', '04', etc.
     ]
     
     username = None  # Remove username field
@@ -43,20 +44,17 @@ class User(AbstractUser):
     
     id_type = models.CharField(
         _('ID Type'),
-        max_length=6,
+        max_length=2,
         choices=ID_TYPE_CHOICES,
-        default='cedula'
+        default='01'
     )
     
-    # Validators to ensure correct format
-    cedula_validator = RegexValidator(
-        regex=r'^\d{9}$',
-        message=_('Cédula must be exactly 9 digits')
-    )
-    dimex_validator = RegexValidator(
-        regex=r'^\d{11,12}$',
-        message=_('DIMEX must be 11 or 12 digits')
-    )
+    # Validators dictionary to map ID types to their validators
+    ID_VALIDATORS = {
+        '01': RegexValidator(regex=r'^\d{9}$', message=_('Cédula must be exactly 9 digits')),
+        '02': RegexValidator(regex=r'^\d{11,12}$', message=_('DIMEX must be 11 or 12 digits')),
+        # Add new validators for future ID types here
+    }
     
     id_number = models.CharField(
         _('ID Number'),
@@ -80,20 +78,18 @@ class User(AbstractUser):
         """Validate the ID number based on the ID type."""
         from django.core.exceptions import ValidationError
         
-        if self.id_type == 'cedula':
+        # Get the validator for this ID type
+        validator = self.ID_VALIDATORS.get(self.id_type)
+        if validator:
             try:
-                self.cedula_validator(self.id_number)
+                validator(self.id_number)
                 # Pad with zeros to get 12 digits for internal storage
                 self.id_number = self.id_number.zfill(12)
-            except ValidationError:
-                raise ValidationError(_('Cédula must be exactly 9 digits'))
-        elif self.id_type == 'dimex':
-            try:
-                self.dimex_validator(self.id_number)
-                # Ensure it's 12 digits by padding if needed
-                self.id_number = self.id_number.zfill(12)
-            except ValidationError:
-                raise ValidationError(_('DIMEX must be 11 or 12 digits'))
+            except ValidationError as e:
+                raise ValidationError(e.message)
+        else:
+            # If no validator exists for this ID type, just pad the number
+            self.id_number = self.id_number.zfill(12)
     
     def save(self, *args, **kwargs):
         # Normalize the ID number before saving (pad with zeros)
@@ -102,12 +98,12 @@ class User(AbstractUser):
     
     def get_display_id(self):
         """Return the ID in the format appropriate for display."""
-        if self.id_type == 'cedula':
-            # Remove leading zeros for display
-            return self.id_number.lstrip('0')
-        else:
-            # For DIMEX, keep as is
-            return self.id_number.lstrip('0')
+        # For all ID types, just strip leading zeros for display
+        return self.id_number.lstrip('0')
+    
+    def get_id_type_display_name(self):
+        """Return the display name of the ID type."""
+        return dict(self.ID_TYPE_CHOICES).get(self.id_type, self.id_type)
     
     class Meta:
         verbose_name = _('User')
