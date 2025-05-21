@@ -38,10 +38,10 @@ class ContractSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Contract
-        fields = ('contract_number', 'plan', 'contract_type', 'account', 'user',
+        fields = ('id', 'contract_number', 'plan', 'contract_type', 'account', 'user',
                   'status', 'is_trial', 'start_date', 'end_date', 
                   'price_override', 'billing_period', 'auto_renew', 'notes',
                   'created_by', 'created_at', 'updated_at', 'status_details',
                   'plan_details', 'account_details', 'user_details',
                   'feature_overrides', 'quotas', 'is_active')
-        read_only_fields = ('created_at', 'updated_at', 'created_by')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')
