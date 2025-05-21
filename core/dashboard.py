@@ -34,7 +34,6 @@ def dashboard_stats(request):
             
             # Debug: Check what accounts actually exist
             all_accounts = list(Account.objects.all().values('account_id', 'account_name', 'is_platform_account', 'account_status'))
-            print(f"All accounts in DB: {all_accounts}")
             
             # Total accounts - ensure we're counting correctly
             total_accounts = Account.objects.all().count()
@@ -79,9 +78,6 @@ def dashboard_stats(request):
                 'totalTreatments': total_treatments,
                 'activeTreatments': active_treatments,
             }
-            
-            # For debugging
-            print(f"Dashboard stats for staff: {response_data}")
             
         else:
             # Regular user - show account-specific stats
@@ -154,7 +150,6 @@ def dashboard_stats(request):
                     'pendingPayments': pending_payments
                 }
                 
-                print(f"Dashboard stats for regular user: {response_data}")
             except Exception as e:
                 print(f"Error in dashboard_stats for regular user: {str(e)}")
                 # If there's an error, return a simple placeholder
