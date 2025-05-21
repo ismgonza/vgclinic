@@ -4,10 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from .models import Contract, FeatureOverride, UsageQuota
-from .serializers import (
-    ContractSerializer, FeatureOverrideSerializer, UsageQuotaSerializer
-)
+from .models import Contract
+from .serializers import ContractSerializer
 
 class ContractViewSet(viewsets.ModelViewSet):
     queryset = Contract.objects.all()
@@ -68,61 +66,3 @@ class ContractViewSet(viewsets.ModelViewSet):
         contract.save()
         serializer = self.get_serializer(contract)
         return Response(serializer.data)
-
-class FeatureOverrideViewSet(viewsets.ModelViewSet):
-    queryset = FeatureOverride.objects.all()
-    serializer_class = FeatureOverrideSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['contract', 'override_type']
-    search_fields = ['feature_code', 'reason']
-    
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-class UsageQuotaViewSet(viewsets.ModelViewSet):
-    queryset = UsageQuota.objects.all()
-    serializer_class = UsageQuotaSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['contract', 'quota_type']
-    
-    @action(detail=True, methods=['post'])
-    def update_usage(self, request, pk=None):
-        quota = self.get_object()
-        usage = request.data.get('usage', None)
-        
-        if usage is None:
-            return Response(
-                {'error': 'Usage value is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            usage = int(usage)
-            quota.current_usage = usage
-            quota.save()
-            serializer = self.get_serializer(quota)
-            return Response(serializer.data)
-        except ValueError:
-            return Response(
-                {'error': 'Invalid usage value. Must be an integer.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    @action(detail=True, methods=['post'])
-    def increment_usage(self, request, pk=None):
-        quota = self.get_object()
-        amount = request.data.get('amount', 1)
-        
-        try:
-            amount = int(amount)
-            quota.current_usage += amount
-            quota.save()
-            serializer = self.get_serializer(quota)
-            return Response(serializer.data)
-        except ValueError:
-            return Response(
-                {'error': 'Invalid amount value. Must be an integer.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )

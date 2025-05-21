@@ -1,14 +1,6 @@
 # platform_contracts/admin.py
 from django.contrib import admin
-from .models import Contract, FeatureOverride, UsageQuota
-
-class FeatureOverrideInline(admin.TabularInline):
-    model = FeatureOverride
-    extra = 1
-
-class UsageQuotaInline(admin.TabularInline):
-    model = UsageQuota
-    extra = 1
+from .models import Contract
 
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
@@ -37,7 +29,7 @@ class ContractAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ('created_at', 'updated_at', 'contract_number')  # Make contract_number read-only
-    inlines = [FeatureOverrideInline, UsageQuotaInline]
+    inlines = []
     
     def get_target_name(self, obj):
         if obj.contract_type == 'account':
@@ -50,21 +42,3 @@ class ContractAdmin(admin.ModelAdmin):
         if not change:  # If creating a new object
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
-
-@admin.register(FeatureOverride)
-class FeatureOverrideAdmin(admin.ModelAdmin):
-    list_display = ('contract', 'feature_code', 'override_type', 'expires_at')
-    list_filter = ('override_type', 'expires_at')
-    search_fields = ('contract__contract_number', 'feature_code', 'reason')
-    date_hierarchy = 'created_at'
-
-@admin.register(UsageQuota)
-class UsageQuotaAdmin(admin.ModelAdmin):
-    list_display = ('contract', 'quota_type', 'limit', 'current_usage', 'percentage_used', 'is_exceeded')
-    list_filter = ('quota_type',)
-    search_fields = ('contract__contract_number',)
-    readonly_fields = ('created_at', 'updated_at')
-    
-    def percentage_used(self, obj):
-        return f"{obj.percentage_used:.1f}%"
-    percentage_used.short_description = 'Usage %'
