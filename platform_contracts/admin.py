@@ -1,6 +1,6 @@
 # platform_contracts/admin.py
 from django.contrib import admin
-from .models import ContractStatus, Contract, FeatureOverride, UsageQuota
+from .models import Contract, FeatureOverride, UsageQuota
 
 class FeatureOverrideInline(admin.TabularInline):
     model = FeatureOverride
@@ -9,11 +9,6 @@ class FeatureOverrideInline(admin.TabularInline):
 class UsageQuotaInline(admin.TabularInline):
     model = UsageQuota
     extra = 1
-
-@admin.register(ContractStatus)
-class ContractStatusAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name')
-    search_fields = ('code', 'name', 'description')
 
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
@@ -41,7 +36,7 @@ class ContractAdmin(admin.ModelAdmin):
         }),
     )
     
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'contract_number')  # Make contract_number read-only
     inlines = [FeatureOverrideInline, UsageQuotaInline]
     
     def get_target_name(self, obj):
@@ -50,6 +45,11 @@ class ContractAdmin(admin.ModelAdmin):
         else:
             return str(obj.user) if obj.user else 'Unknown User'
     get_target_name.short_description = 'Target'
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # If creating a new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 @admin.register(FeatureOverride)
 class FeatureOverrideAdmin(admin.ModelAdmin):

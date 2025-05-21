@@ -4,18 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from .models import ContractStatus, Contract, FeatureOverride, UsageQuota
+from .models import Contract, FeatureOverride, UsageQuota
 from .serializers import (
-    ContractStatusSerializer, ContractSerializer, 
-    FeatureOverrideSerializer, UsageQuotaSerializer
+    ContractSerializer, FeatureOverrideSerializer, UsageQuotaSerializer
 )
-
-class ContractStatusViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ContractStatus.objects.all()
-    serializer_class = ContractStatusSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['code', 'name', 'description']
 
 class ContractViewSet(viewsets.ModelViewSet):
     queryset = Contract.objects.all()
@@ -33,9 +25,8 @@ class ContractViewSet(viewsets.ModelViewSet):
     def cancel(self, request, pk=None):
         contract = self.get_object()
         
-        # Update status to 'canceled'
-        canceled_status = ContractStatus.objects.get(code='canceled')
-        contract.status = canceled_status
+        # Update status to 'terminated'
+        contract.status = 'terminated'
         contract.auto_renew = False
         
         # Set reason if provided
@@ -59,8 +50,7 @@ class ContractViewSet(viewsets.ModelViewSet):
             )
         
         # Update status to 'active'
-        active_status = ContractStatus.objects.get(code='active')
-        contract.status = active_status
+        contract.status = 'active'
         
         # Set new dates
         contract.start_date = timezone.now()

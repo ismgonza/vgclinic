@@ -5,26 +5,20 @@ from platform_accounts.models import Account
 from platform_services.models import Plan
 from platform_users.models import User
 
-class ContractStatus(models.Model):
-    """
-    Represents possible statuses for a contract.
-    """
-    code = models.CharField(_('code'), max_length=20, primary_key=True)
-    name = models.CharField(_('name'), max_length=100)
-    description = models.TextField(_('description'), blank=True)
-    
-    class Meta:
-        verbose_name = _('contract status')
-        verbose_name_plural = _('contract statuses')
-        
-    def __str__(self):
-        return self.name
 
 
 class Contract(models.Model):
     """
     A contract links an account or user to a specific plan for a period of time.
     """
+    CONTRACT_STATUS_CHOICES = (
+        ('active', _('Active')),
+        ('pending', _('Pending')),
+        ('suspended', _('Suspended')),
+        ('terminated', _('Terminated')),
+    )
+    
+    # Auto-generate contract number if not provided
     contract_number = models.CharField(_('contract number'), max_length=14, primary_key=True,
                                      help_text=_('Format: YYYYMMDDHHMMSS'))
     plan = models.ForeignKey(
@@ -58,11 +52,11 @@ class Contract(models.Model):
     )
     
     # Status and dates
-    status = models.ForeignKey(
-        ContractStatus,
-        on_delete=models.PROTECT,
-        related_name='contracts',
-        verbose_name=_('status')
+    status = models.CharField(
+        _('status'),
+        max_length=20,
+        choices=CONTRACT_STATUS_CHOICES,
+        default='pending'  # Default to pending
     )
     is_trial = models.BooleanField(_('is trial'), default=False)
     start_date = models.DateTimeField(_('start date'), default=timezone.now)
@@ -109,7 +103,8 @@ class Contract(models.Model):
             target = self.account.account_name if self.account else 'Unknown Account'
         else:
             target = str(self.user) if self.user else 'Unknown User'
-        return f"{target} - {self.plan.name} ({self.status.name})"
+        # Fixed: status is now a string, not an object
+        return f"{target} - {self.plan.name} ({self.get_status_display()})"
     
     def save(self, *args, **kwargs):
         # Validate that either account or user is set based on contract_type
@@ -120,15 +115,20 @@ class Contract(models.Model):
         
         # If this is a new contract (no primary key yet), generate contract number
         if not self.contract_number:
-            self.contract_number = timezone.now().strftime('%Y%m%d%H%M%S')
-            
+            # Use microseconds to ensure uniqueness even if multiple contracts are created in the same second
+            import time
+            timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+            # Add microseconds to ensure uniqueness
+            microseconds = str(int(time.time() * 1000000))[-6:]
+            self.contract_number = f"{timestamp}{microseconds}"[:14]  # Ensure it fits in 14 chars
+                
         super().save(*args, **kwargs)
     
     @property
     def is_active(self):
         """Check if contract is currently active."""
-        active_statuses = ['active', 'trial']
-        is_status_active = self.status.code in active_statuses
+        # Fixed: status is now a string, not an object with a 'code' attribute
+        is_status_active = self.status == 'active'
         is_date_valid = True
         
         if self.end_date and self.end_date < timezone.now():

@@ -2,13 +2,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    ContractStatusViewSet, ContractViewSet, 
-    FeatureOverrideViewSet, UsageQuotaViewSet
+    ContractViewSet, FeatureOverrideViewSet, UsageQuotaViewSet
 )
 
 router = DefaultRouter()
-router.register(r'statuses', ContractStatusViewSet)
-router.register(r'contracts', ContractViewSet)
+router.register(r'', ContractViewSet)
 router.register(r'overrides', FeatureOverrideViewSet)
 router.register(r'quotas', UsageQuotaViewSet)
 
