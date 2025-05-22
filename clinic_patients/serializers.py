@@ -54,6 +54,69 @@ class PatientCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         exclude = ('created_at', 'updated_at')
+
+    def update(self, instance, validated_data):
+        """Custom update method to handle nested fields"""
+        # Extract nested fields
+        phones_data = validated_data.pop('phones', None)
+        emergency_contacts_data = validated_data.pop('emergency_contacts', None)
+        account_data = validated_data.pop('account', None)
+        
+        # Clinic-specific fields
+        clinic_fields = {
+            'referral_source': validated_data.pop('referral_source', None),
+            'consultation_reason': validated_data.pop('consultation_reason', None),
+            'receive_notifications': validated_data.pop('receive_notifications', None)
+        }
+        
+        # Update the patient instance
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Handle phones - if provided, replace existing ones
+        if phones_data is not None:
+            # Delete existing phones
+            instance.phones.all().delete()
+            # Create new ones
+            for phone_data in phones_data:
+                PatientPhone.objects.create(patient=instance, **phone_data)
+        
+        # Handle emergency contacts - if provided, replace existing ones
+        if emergency_contacts_data is not None:
+            # Delete existing emergency contacts
+            instance.emergency_contacts.all().delete()
+            # Create new ones
+            for contact_data in emergency_contacts_data:
+                EmergencyContact.objects.create(patient=instance, **contact_data)
+        
+        # Handle clinic membership (account) if provided
+        if account_data:
+            # Try to get the existing clinic membership
+            try:
+                patient_account = PatientAccount.objects.get(patient=instance, account=account_data)
+                # Update clinic-specific fields for existing membership
+                for field, value in clinic_fields.items():
+                    if value is not None:
+                        setattr(patient_account, field, value)
+                patient_account.save()
+            except PatientAccount.DoesNotExist:
+                # Create a new clinic membership
+                clinic_fields_clean = {k: v for k, v in clinic_fields.items() if v is not None}
+                PatientAccount.objects.create(
+                    patient=instance, 
+                    account=account_data,
+                    **clinic_fields_clean
+                )
+        elif any(v is not None for v in clinic_fields.values()):
+            # Update clinic-specific fields for existing memberships
+            for patient_account in instance.clinic_memberships.all():
+                for field, value in clinic_fields.items():
+                    if value is not None:
+                        setattr(patient_account, field, value)
+                patient_account.save()
+        
+        return instance
     
     def create(self, validated_data):
         phones_data = validated_data.pop('phones', [])
