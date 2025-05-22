@@ -4,6 +4,8 @@ from .models import Treatment, TreatmentNote, TreatmentDetail
 from clinic_patients.serializers import PatientSerializer
 from clinic_catalog.serializers import CatalogItemSerializer, SpecialtySerializer
 from platform_users.serializers import UserSerializer
+from clinic_locations.serializers import BranchSerializer
+
 
 class TreatmentDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,6 +26,7 @@ class TreatmentSerializer(serializers.ModelSerializer):
     specialty_details = SpecialtySerializer(source='specialty', read_only=True)
     doctor_details = UserSerializer(source='doctor', read_only=True)
     created_by_details = UserSerializer(source='created_by', read_only=True)
+    location_details = BranchSerializer(source='location', read_only=True)
     details = TreatmentDetailSerializer(many=True, read_only=True)
     additional_notes = TreatmentNoteSerializer(many=True, read_only=True)
     
@@ -34,7 +37,7 @@ class TreatmentSerializer(serializers.ModelSerializer):
                   'location', 'parent_treatment', 'phase_number', 'created_at', 
                   'updated_at', 'created_by', 'patient_details', 'catalog_item_details', 
                   'specialty_details', 'doctor_details', 'created_by_details',
-                  'details', 'additional_notes')
+                  'location_details', 'details', 'additional_notes')
         read_only_fields = ('created_at', 'updated_at', 'created_by')
 
 class TreatmentCreateSerializer(serializers.ModelSerializer):
