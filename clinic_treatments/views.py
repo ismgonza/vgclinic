@@ -82,30 +82,64 @@ class TreatmentViewSet(viewsets.ModelViewSet):
     def form_options(self, request):
         """Get all options needed for treatment forms"""
         try:
-            # Get doctors from accounts the user has access to
-            user_accounts = AccountUser.objects.filter(
-                user=request.user,
-                is_active_in_account=True
-            ).values_list('account', flat=True)
+            # Get account context
+            account = self.get_account_context()
             
-            # Get all users who are doctors in these accounts
-            doctors = User.objects.filter(
-                account_memberships__account__in=user_accounts,
-                account_memberships__role__id='doc',
-                account_memberships__is_active_in_account=True,
-                is_active=True
-            ).distinct()
+            # DEBUG: Print account context
+            account_header = self.request.headers.get('X-Account-Context')
+            print(f"DEBUG: form_options X-Account-Context header = {account_header}")
+            print(f"DEBUG: form_options resolved account = {account}")
+            if account:
+                print(f"DEBUG: form_options account name = {account.account_name}")
             
-            # Also include owners as potential doctors
-            owners = User.objects.filter(
-                account_memberships__account__in=user_accounts,
-                account_memberships__role__id='own',
-                account_memberships__is_active_in_account=True,
-                is_active=True
-            ).distinct()
-            
-            # Combine doctors and owners
-            all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
+            if account:
+                # Get doctors from the specific account
+                doctors = User.objects.filter(
+                    account_memberships__account=account,
+                    account_memberships__role__id='doc',
+                    account_memberships__is_active_in_account=True,
+                    is_active=True
+                ).distinct()
+                
+                # Also include owners as potential doctors
+                owners = User.objects.filter(
+                    account_memberships__account=account,
+                    account_memberships__role__id='own',
+                    account_memberships__is_active_in_account=True,
+                    is_active=True
+                ).distinct()
+                
+                # Combine doctors and owners
+                all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
+                
+                print(f"DEBUG: form_options doctors count = {all_doctors.count()}")
+                
+            else:
+                # Fallback: Get doctors from all accounts the user has access to
+                print("DEBUG: form_options no account context - using fallback")
+                user_accounts = AccountUser.objects.filter(
+                    user=request.user,
+                    is_active_in_account=True
+                ).values_list('account', flat=True)
+                
+                # Get all users who are doctors in these accounts
+                doctors = User.objects.filter(
+                    account_memberships__account__in=user_accounts,
+                    account_memberships__role__id='doc',
+                    account_memberships__is_active_in_account=True,
+                    is_active=True
+                ).distinct()
+                
+                # Also include owners as potential doctors
+                owners = User.objects.filter(
+                    account_memberships__account__in=user_accounts,
+                    account_memberships__role__id='own',
+                    account_memberships__is_active_in_account=True,
+                    is_active=True
+                ).distinct()
+                
+                # Combine doctors and owners
+                all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
             
             # Serialize the data
             from platform_users.serializers import UserSerializer
@@ -116,6 +150,7 @@ class TreatmentViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
+            print(f"DEBUG: form_options error = {str(e)}")
             return Response({'error': str(e)}, status=500)
     
     @action(detail=True, methods=['post'])

@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from platform_accounts.models import Account, AccountUser
 from .models import Patient, PatientPhone, EmergencyContact, PatientAccount, MedicalHistory
 from .serializers import (
     PatientSerializer, PatientCreateSerializer, PatientPhoneSerializer,
@@ -17,11 +18,62 @@ class PatientViewSet(viewsets.ModelViewSet):
     search_fields = ['first_name', 'last_name1', 'last_name2', 'id_number', 'email']
     ordering_fields = ['first_name', 'last_name1', 'birth_date']
     
+    def get_account_context(self):
+        """Get and validate account context from request header"""
+        account_id = self.request.headers.get('X-Account-Context')
+        
+        if not account_id:
+            return None
+            
+        try:
+            account = Account.objects.get(account_id=account_id)
+            
+            # Check if user has access (unless they're staff/superuser)
+            if self.request.user.is_staff or self.request.user.is_superuser:
+                return account
+            else:
+                # Check if user is a member of this account
+                if AccountUser.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active_in_account=True
+                ).exists():
+                    return account
+                    
+            return None
+        except Account.DoesNotExist:
+            return None
+
     def get_queryset(self):
-        # If using request.account, filter patients by the current account
-        if hasattr(self.request, 'account'):
-            return Patient.objects.filter(clinic_memberships__account=self.request.account).distinct()
-        return Patient.objects.all()
+        # Get account context
+        account = self.get_account_context()
+        
+        # DEBUG: Print account context
+        account_header = self.request.headers.get('X-Account-Context')
+        print(f"DEBUG: X-Account-Context header = {account_header}")
+        print(f"DEBUG: Resolved account = {account}")
+        if account:
+            print(f"DEBUG: Account name = {account.account_name}")
+        
+        # Start with base queryset
+        queryset = Patient.objects.all()
+        
+        # Filter by account if we have one
+        if account:
+            # Use the clinic_memberships relationship for patients
+            queryset = queryset.filter(clinic_memberships__account=account).distinct()
+            print(f"DEBUG: Filtered patients count = {queryset.count()}")
+        else:
+            print("DEBUG: No account context - showing all patients user has access to")
+            # Fallback: show patients for accounts the user has access to
+            if not self.request.user.is_superuser:
+                user_accounts = AccountUser.objects.filter(
+                    user=self.request.user,
+                    is_active_in_account=True
+                ).values_list('account', flat=True)
+                queryset = queryset.filter(clinic_memberships__account__in=user_accounts).distinct()
+        
+        return queryset
     
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'update':
@@ -31,7 +83,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def medical_history(self, request, pk=None):
         patient = self.get_object()
-        account = getattr(request, 'account', None)
+        account = self.get_account_context()
         
         if account:
             # Get medical histories specific to this account
@@ -90,10 +142,46 @@ class PatientAccountViewSet(viewsets.ModelViewSet):
     serializer_class = PatientAccountSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def get_account_context(self):
+        """Get and validate account context from request header"""
+        account_id = self.request.headers.get('X-Account-Context')
+        
+        if not account_id:
+            return None
+            
+        try:
+            account = Account.objects.get(account_id=account_id)
+            
+            # Check if user has access (unless they're staff/superuser)
+            if self.request.user.is_staff or self.request.user.is_superuser:
+                return account
+            else:
+                # Check if user is a member of this account
+                if AccountUser.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active_in_account=True
+                ).exists():
+                    return account
+                    
+            return None
+        except Account.DoesNotExist:
+            return None
+    
     def get_queryset(self):
-        if hasattr(self.request, 'account'):
-            return PatientAccount.objects.filter(account=self.request.account)
-        return PatientAccount.objects.all()
+        account = self.get_account_context()
+        
+        if account:
+            return PatientAccount.objects.filter(account=account)
+        else:
+            # Fallback: show patient accounts for accounts the user has access to
+            if not self.request.user.is_superuser:
+                user_accounts = AccountUser.objects.filter(
+                    user=self.request.user,
+                    is_active_in_account=True
+                ).values_list('account', flat=True)
+                return PatientAccount.objects.filter(account__in=user_accounts)
+            return PatientAccount.objects.all()
     
     @action(detail=True, methods=['post'])
     def add_medical_history(self, request, pk=None):
@@ -108,7 +196,43 @@ class MedicalHistoryViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalHistorySerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def get_account_context(self):
+        """Get and validate account context from request header"""
+        account_id = self.request.headers.get('X-Account-Context')
+        
+        if not account_id:
+            return None
+            
+        try:
+            account = Account.objects.get(account_id=account_id)
+            
+            # Check if user has access (unless they're staff/superuser)
+            if self.request.user.is_staff or self.request.user.is_superuser:
+                return account
+            else:
+                # Check if user is a member of this account
+                if AccountUser.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active_in_account=True
+                ).exists():
+                    return account
+                    
+            return None
+        except Account.DoesNotExist:
+            return None
+    
     def get_queryset(self):
-        if hasattr(self.request, 'account'):
-            return MedicalHistory.objects.filter(patient_account__account=self.request.account)
-        return MedicalHistory.objects.all()
+        account = self.get_account_context()
+        
+        if account:
+            return MedicalHistory.objects.filter(patient_account__account=account)
+        else:
+            # Fallback: show medical histories for accounts the user has access to
+            if not self.request.user.is_superuser:
+                user_accounts = AccountUser.objects.filter(
+                    user=self.request.user,
+                    is_active_in_account=True
+                ).values_list('account', flat=True)
+                return MedicalHistory.objects.filter(patient_account__account__in=user_accounts)
+            return MedicalHistory.objects.all()
