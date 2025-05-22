@@ -23,14 +23,7 @@ class TreatmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Get account context
         account = self.get_account_context()
-        
-        # DEBUG: Print account context
-        account_header = self.request.headers.get('X-Account-Context')
-        print(f"DEBUG: X-Account-Context header = {account_header}")
-        print(f"DEBUG: Resolved account = {account}")
-        if account:
-            print(f"DEBUG: Account name = {account.account_name}")
-        
+
         # Start with base queryset
         queryset = Treatment.objects.all()
         
