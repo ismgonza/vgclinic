@@ -167,14 +167,23 @@ class TreatmentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(treatment)
         return Response(serializer.data)
     
+
     @action(detail=True, methods=['post'])
     def add_note(self, request, pk=None):
+    
         treatment = self.get_object()
-        serializer = TreatmentNoteSerializer(data=request.data)
+        
+        # Add the treatment ID to the request data before validation
+        note_data = request.data.copy()
+        note_data['treatment'] = treatment.id
+        
+        serializer = TreatmentNoteSerializer(data=note_data)
+        
         if serializer.is_valid():
-            serializer.save(treatment=treatment, created_by=request.user)
+            note = serializer.save(created_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TreatmentNoteViewSet(viewsets.ModelViewSet):
     queryset = TreatmentNote.objects.all()
@@ -183,6 +192,50 @@ class TreatmentNoteViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['treatment']
     ordering_fields = ['date']
+    
+    def get_queryset(self):
+        """Filter notes by account context"""
+        # Get account context
+        account = self.get_account_context()
+
+        # Start with base queryset
+        queryset = TreatmentNote.objects.all()
+        
+        # Filter by account if we have one
+        if account:
+            # Filter treatment notes by the treatment's specialty's account
+            queryset = queryset.filter(treatment__specialty__account=account)
+            print(f"DEBUG: TreatmentNote filtered queryset count = {queryset.count()}")
+        else:
+            print("DEBUG: TreatmentNote - No account context - showing all notes")
+        
+        return queryset
+    
+    def get_account_context(self):
+        """Get and validate account context from request header"""
+        account_id = self.request.headers.get('X-Account-Context')
+        
+        if not account_id:
+            return None
+            
+        try:
+            account = Account.objects.get(account_id=account_id)
+            
+            # Check if user has access (unless they're staff/superuser)
+            if self.request.user.is_staff or self.request.user.is_superuser:
+                return account
+            else:
+                # Check if user is a member of this account
+                if AccountUser.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active_in_account=True
+                ).exists():
+                    return account
+                    
+            return None
+        except Account.DoesNotExist:
+            return None
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -193,3 +246,47 @@ class TreatmentDetailViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['treatment', 'field_name']
+    
+    def get_queryset(self):
+        """Filter treatment details by account context"""
+        # Get account context
+        account = self.get_account_context()
+
+        # Start with base queryset
+        queryset = TreatmentDetail.objects.all()
+        
+        # Filter by account if we have one
+        if account:
+            # Filter treatment details by the treatment's specialty's account
+            queryset = queryset.filter(treatment__specialty__account=account)
+            print(f"DEBUG: TreatmentDetail filtered queryset count = {queryset.count()}")
+        else:
+            print("DEBUG: TreatmentDetail - No account context - showing all details")
+        
+        return queryset
+    
+    def get_account_context(self):
+        """Get and validate account context from request header"""
+        account_id = self.request.headers.get('X-Account-Context')
+        
+        if not account_id:
+            return None
+            
+        try:
+            account = Account.objects.get(account_id=account_id)
+            
+            # Check if user has access (unless they're staff/superuser)
+            if self.request.user.is_staff or self.request.user.is_superuser:
+                return account
+            else:
+                # Check if user is a member of this account
+                if AccountUser.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active_in_account=True
+                ).exists():
+                    return account
+                    
+            return None
+        except Account.DoesNotExist:
+            return None
