@@ -12,6 +12,7 @@ class Treatment(models.Model):
     
     STATUS_CHOICES = [
         ('SCHEDULED', _('Scheduled')),
+        ('RESCHEDULED', _('Rescheduled')),
         ('IN_PROGRESS', _('In Progress')),
         ('COMPLETED', _('Completed')),
         ('CANCELED', _('Canceled')),
@@ -87,34 +88,43 @@ class Treatment(models.Model):
         verbose_name_plural = _('treatments')
         ordering = ['-scheduled_date']
 
-
 class TreatmentNote(models.Model):
     """
     Additional notes or observations made during treatment
     Multiple notes can be added per treatment
     """
+    NOTE_TYPE_CHOICES = [
+        ('DOCTOR', _('Doctor Note')),
+        ('BILLING', _('Billing Note')),
+        ('RESCHEDULE', _('Reschedule Note')),
+    ]
     
-    treatment = models.ForeignKey(
-        Treatment, 
-        on_delete=models.CASCADE, 
-        related_name='additional_notes',
-        verbose_name=_('treatment')
-    )
+    treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE, related_name='additional_notes', verbose_name=_('treatment'))
     date = models.DateTimeField(_('date'), default=timezone.now)
     note = models.TextField(_('note'))
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.PROTECT,
-        verbose_name=_('created by')
-    )
-    
+    type = models.CharField(_('type'), max_length=20, choices=NOTE_TYPE_CHOICES, default='DOCTOR')  # Move type field up
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name=_('created by'))
+
     def __str__(self):
-        return f"Note for {self.treatment} on {self.date}"
+        return f"{self.get_type_display()} for {self.treatment} on {self.date}"  # Better __str__ to show type
     
     class Meta:
         verbose_name = _('treatment note')
         verbose_name_plural = _('treatment notes')
         ordering = ['-date']
+
+class TreatmentScheduleHistory(models.Model):
+    treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE, related_name='schedule_history', verbose_name=_('treatment'))
+    scheduled_date = models.DateTimeField(_('scheduled date'))
+    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.treatment} scheduled for {self.scheduled_date}"
+    
+    class Meta:
+        verbose_name = _('schedule history')
+        verbose_name_plural = _('schedule histories')
+        ordering = ['-created_at']
         
 class TreatmentDetail(models.Model):
     """
