@@ -94,8 +94,7 @@ class TreatmentNote(models.Model):
     Multiple notes can be added per treatment
     """
     NOTE_TYPE_CHOICES = [
-        # ('GENERAL', _('GENERAL Note')),
-        ('MEDICAL', _('MEDICAL Note')),
+        ('MEDICAL', _('Medical Note')),
         ('BILLING', _('Billing Note')),
         ('RESCHEDULE', _('Reschedule Note')),
     ]
@@ -103,11 +102,22 @@ class TreatmentNote(models.Model):
     treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE, related_name='additional_notes', verbose_name=_('treatment'))
     date = models.DateTimeField(_('date'), default=timezone.now)
     note = models.TextField(_('note'))
-    type = models.CharField(_('type'), max_length=20, choices=NOTE_TYPE_CHOICES, default='MEDICAL')  # Move type field up
+    type = models.CharField(_('type'), max_length=20, choices=NOTE_TYPE_CHOICES, default='MEDICAL')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name=_('created by'))
+    
+    # New field for medical note assignment
+    assigned_doctor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='assigned_medical_notes',
+        verbose_name=_('assigned doctor'),
+        help_text=_('Doctor assigned to this medical note (required for medical notes)')
+    )
 
     def __str__(self):
-        return f"{self.get_type_display()} for {self.treatment} on {self.date}"  # Better __str__ to show type
+        return f"{self.get_type_display()} for {self.treatment} on {self.date}"
     
     class Meta:
         verbose_name = _('treatment note')
