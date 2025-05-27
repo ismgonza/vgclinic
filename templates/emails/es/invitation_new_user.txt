@@ -1,0 +1,20 @@
+¡Te invitamos a unirte a {{ account_name }}!
+
+¡Hola!
+
+{{ invited_by_name }} te ha invitado a crear una cuenta y unirte a {{ account_name }} como {{ role_display }}{% if specialty_name %} en {{ specialty_name }}{% endif %}.
+
+{% if personal_message %}
+Mensaje Personal:
+{{ personal_message }}
+{% endif %}
+
+Haz clic en el enlace de abajo para crear tu cuenta y unirte al equipo:
+
+{{ acceptance_url }}
+
+Esta invitación expirará el {{ expires_at|date:"d \d\e F \d\e Y \a \l\a\s G:i" }}.
+
+---
+Esta invitación fue enviada por {{ invited_by_name }} ({{ invited_by_email }}) desde {{ account_name }}.
+Si no esperabas esta invitación, puedes ignorar este correo de forma segura.

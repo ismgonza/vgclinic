@@ -25,6 +25,8 @@ CSRF_TRUSTED_ORIGINS = ['https://vgclinic.com', 'https://portal.vgclinic.com', '
 # SECURE_HSTS_PRELOAD = True
 # USE_X_FORWARDED_HOST = True
 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://portal.vgclinic.com')
+
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -52,3 +54,18 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # CHECK FOR STORAGE
 # https://docs.djangoproject.com/en/5.0/ref/settings/#std-setting-STORAGES
+
+# =================================================================
+# Email settings for production - SMTP
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')  # or your SMTP server
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')  # your email
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # your app password
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@vgclinic.com')
+EMAIL_SUBJECT_PREFIX = '[VGClinic] '
+
+# Optional: Email timeout settings
+EMAIL_TIMEOUT = 30

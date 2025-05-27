@@ -159,8 +159,6 @@ USE_I18N = True
 USE_L10N = True  # Format dates and numbers according to locale
 USE_TZ = True
 
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-
 # Add language settings
 from django.utils.translation import gettext_lazy as _
 LANGUAGES = [

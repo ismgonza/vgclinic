@@ -1,0 +1,13 @@
+¡Bienvenido a {{ account.account_name }}!
+
+¡Hola {{ user.first_name }}!
+
+¡Felicitaciones! Te has unido exitosamente a {{ account.account_name }}.
+
+Ahora puedes iniciar sesión para acceder a tu cuenta y comenzar a usar la plataforma:
+
+{{ login_url }}
+
+Si tienes alguna pregunta o necesitas ayuda, no dudes en contactar a tu equipo.
+
+¡Bienvenido al equipo!

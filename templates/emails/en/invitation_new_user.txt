@@ -1,0 +1,23 @@
+You're Invited to Join {{ account_name }}!
+
+Hello!
+
+{{ invited_by_name }} has invited you to create an account and join {{ account_name }} as a {{ role_display }}{% if specialty_name %} in {{ specialty_name }}{% endif %}.
+
+{% if personal_message %}
+Personal Message:
+{{ personal_message }}
+{% endif %}
+
+Click the link below to create your account and join the team:
+
+{{ acceptance_url }}
+
+This invitation will expire on {{ expires_at|date:"F d, Y at g:i A" }}.
+
+---
+This invitation was sent by {{ invited_by_name }} ({{ invited_by_email }}) from {{ account_name }}.
+If you didn't expect this invitation, you can safely ignore this email.
+
+<!-- ============================================================ -->
+

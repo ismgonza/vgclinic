@@ -33,6 +33,9 @@ LOGGING = {
 
 ALLOWED_HOSTS = ['*']
 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
+
 # CORS settings - ONLY during development
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
@@ -52,3 +55,10 @@ STATICFILES_DIRS = [
     Path.joinpath(BASE_DIR, 'static'),
 ]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+# =================================================================
+# Email settings for development - prints to console
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@vgclinic.local'
+EMAIL_SUBJECT_PREFIX = '[VGClinic Dev] '

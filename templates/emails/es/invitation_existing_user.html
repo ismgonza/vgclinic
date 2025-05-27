@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Invitación a {{ account_name }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #007bff; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f8f9fa; }
+        .button { display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        .personal-message { background-color: #e9ecef; padding: 15px; border-left: 4px solid #007bff; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>¡Te han invitado!</h1>
+        </div>
+        
+        <div class="content">
+            <h2>¡Hola!</h2>
+            
+            <p><strong>{{ invited_by_name }}</strong> te ha invitado a unirte a <strong>{{ account_name }}</strong> como <strong>{{ role_display }}</strong>{% if specialty_name %} en <strong>{{ specialty_name }}</strong>{% endif %}.</p>
+            
+            {% if personal_message %}
+            <div class="personal-message">
+                <h4>Mensaje Personal:</h4>
+                <p>{{ personal_message }}</p>
+            </div>
+            {% endif %}
+            
+            <p>Como ya tienes una cuenta con nosotros, simplemente haz clic en el botón de abajo para aceptar esta invitación:</p>
+            
+            <a href="{{ acceptance_url }}" class="button">Aceptar Invitación</a>
+            
+            <p><small>Esta invitación expirará el {{ expires_at|date:"d \d\e F \d\e Y \a \l\a\s G:i" }}.</small></p>
+            
+            <p>Si el botón de arriba no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+            <p><a href="{{ acceptance_url }}">{{ acceptance_url }}</a></p>
+        </div>
+        
+        <div class="footer">
+            <p>Esta invitación fue enviada por {{ invited_by_name }} ({{ invited_by_email }}) desde {{ account_name }}.</p>
+            <p>Si no esperabas esta invitación, puedes ignorar este correo de forma segura.</p>
+        </div>
+    </div>
+</body>
+</html>

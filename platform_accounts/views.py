@@ -1,8 +1,14 @@
 # platform_accounts/views.py
-from rest_framework import viewsets, permissions
-from django.db import models
-from .models import Account, AccountOwner, AccountUser
-from .serializers import AccountSerializer, AccountOwnerSerializer, AccountUserSerializer
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import viewsets, permissions, status
+from django.db import models, transaction
+from .models import Account, AccountOwner, AccountUser, AccountInvitation
+from .serializers import AccountSerializer, AccountOwnerSerializer, AccountUserSerializer, AccountInvitationSerializer, CreateInvitationSerializer, AcceptInvitationSerializer
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class IsAccountMemberOrAdmin(permissions.BasePermission):
     """
@@ -136,3 +142,401 @@ class AccountUserViewSet(viewsets.ModelViewSet):
             models.Q(user=self.request.user) | 
             models.Q(account__account_id__in=manageable_accounts)
         )
+        
+class AccountInvitationViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing account invitations.
+    """
+    queryset = AccountInvitation.objects.all()
+    serializer_class = AccountInvitationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filter invitations based on user permissions."""
+        if self.request.user.is_superuser:
+            return AccountInvitation.objects.all()
+        
+        # Get accounts where user can invite users
+        accessible_accounts = []
+        
+        # Add owned accounts
+        owned_accounts = AccountOwner.objects.filter(
+            user=self.request.user, 
+            is_active=True
+        ).values_list('account', flat=True)
+        accessible_accounts.extend(owned_accounts)
+        
+        # Add accounts where user has invite_users authorization
+        for account_user in AccountUser.objects.filter(user=self.request.user, is_active_in_account=True):
+            if account_user.has_authorization('invite_users'):
+                accessible_accounts.append(account_user.account.account_id)
+        
+        return AccountInvitation.objects.filter(account__account_id__in=accessible_accounts)
+    
+    def get_serializer_class(self):
+        """Use different serializer for creation."""
+        if self.action == 'create':
+            return CreateInvitationSerializer
+        return AccountInvitationSerializer
+    
+    def perform_create(self, serializer):
+        """Set the invited_by field when creating invitations."""
+        # Check if user has permission to invite to this account
+        account = serializer.validated_data['account']
+        
+        # Check if user is owner or has invite_users authorization
+        is_owner = AccountOwner.objects.filter(
+            user=self.request.user, 
+            account=account, 
+            is_active=True
+        ).exists()
+        
+        has_permission = AccountUser.user_has_authorization(
+            self.request.user, 
+            account, 
+            'invite_users'
+        )
+        
+        if not (is_owner or has_permission):
+            raise permissions.PermissionDenied("You don't have permission to invite users to this account.")
+        
+        serializer.save(invited_by=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def resend(self, request, pk=None):
+        """Resend an invitation email."""
+        invitation = self.get_object()
+        
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'Can only resend pending invitations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if invitation.is_expired():
+            return Response(
+                {'error': 'Cannot resend expired invitation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # TODO: Send email (we'll implement this next)
+        # send_invitation_email(invitation)
+        
+        return Response({'message': 'Invitation resent successfully'})
+    
+    @action(detail=True, methods=['patch'])
+    def revoke(self, request, pk=None):
+        """Revoke an invitation."""
+        invitation = self.get_object()
+        
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'Can only revoke pending invitations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        invitation.mark_as_revoked()
+        
+        return Response({'message': 'Invitation revoked successfully'})
+
+class AccountInvitationViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing account invitations.
+    """
+    queryset = AccountInvitation.objects.all()
+    serializer_class = AccountInvitationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filter invitations based on user permissions."""
+        if self.request.user.is_superuser:
+            return AccountInvitation.objects.all()
+        
+        # Get accounts where user can invite users
+        accessible_accounts = []
+        
+        # Add owned accounts
+        owned_accounts = AccountOwner.objects.filter(
+            user=self.request.user, 
+            is_active=True
+        ).values_list('account', flat=True)
+        accessible_accounts.extend(owned_accounts)
+        
+        # Add accounts where user has invite_users authorization
+        for account_user in AccountUser.objects.filter(user=self.request.user, is_active_in_account=True):
+            if account_user.has_authorization('invite_users'):
+                accessible_accounts.append(account_user.account.account_id)
+        
+        return AccountInvitation.objects.filter(account__account_id__in=accessible_accounts)
+    
+    def get_serializer_class(self):
+        """Use different serializer for creation."""
+        if self.action == 'create':
+            return CreateInvitationSerializer
+        return AccountInvitationSerializer
+    
+    def perform_create(self, serializer):
+        """Set the invited_by field when creating invitations."""
+        # Check if user has permission to invite to this account
+        account = serializer.validated_data['account']
+        
+        # Check if user is owner or has invite_users authorization
+        is_owner = AccountOwner.objects.filter(
+            user=self.request.user, 
+            account=account, 
+            is_active=True
+        ).exists()
+        
+        has_permission = AccountUser.user_has_authorization(
+            self.request.user, 
+            account, 
+            'invite_users'
+        )
+        
+        if not (is_owner or has_permission):
+            raise permissions.PermissionDenied("You don't have permission to invite users to this account.")
+        
+        serializer.save(invited_by=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def resend(self, request, pk=None):
+        """Resend an invitation email."""
+        invitation = self.get_object()
+        
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'Can only resend pending invitations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if invitation.is_expired():
+            return Response(
+                {'error': 'Cannot resend expired invitation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # TODO: Send email (we'll implement this next)
+        # send_invitation_email(invitation)
+        
+        return Response({'message': 'Invitation resent successfully'})
+    
+    @action(detail=True, methods=['patch'])
+    def revoke(self, request, pk=None):
+        """Revoke an invitation."""
+        invitation = self.get_object()
+        
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'Can only revoke pending invitations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        invitation.mark_as_revoked()
+        
+        return Response({'message': 'Invitation revoked successfully'})
+
+class AccountInvitationViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing account invitations.
+    """
+    queryset = AccountInvitation.objects.all()
+    serializer_class = AccountInvitationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filter invitations based on user permissions."""
+        if self.request.user.is_superuser:
+            return AccountInvitation.objects.all()
+        
+        # Get accounts where user can invite users
+        accessible_accounts = []
+        
+        # Add owned accounts
+        owned_accounts = AccountOwner.objects.filter(
+            user=self.request.user, 
+            is_active=True
+        ).values_list('account', flat=True)
+        accessible_accounts.extend(owned_accounts)
+        
+        # Add accounts where user has invite_users authorization
+        for account_user in AccountUser.objects.filter(user=self.request.user, is_active_in_account=True):
+            if account_user.has_authorization('invite_users'):
+                accessible_accounts.append(account_user.account.account_id)
+        
+        return AccountInvitation.objects.filter(account__account_id__in=accessible_accounts)
+    
+    def get_serializer_class(self):
+        """Use different serializer for creation."""
+        if self.action == 'create':
+            return CreateInvitationSerializer
+        return AccountInvitationSerializer
+    
+    def perform_create(self, serializer):
+        """Set the invited_by field when creating invitations."""
+        # Check if user has permission to invite to this account
+        account = serializer.validated_data['account']
+        
+        # Check if user is owner or has invite_users authorization
+        is_owner = AccountOwner.objects.filter(
+            user=self.request.user, 
+            account=account, 
+            is_active=True
+        ).exists()
+        
+        has_permission = AccountUser.user_has_authorization(
+            self.request.user, 
+            account, 
+            'invite_users'
+        )
+        
+        if not (is_owner or has_permission):
+            raise permissions.PermissionDenied("You don't have permission to invite users to this account.")
+        
+        # Save the invitation
+        invitation = serializer.save(invited_by=self.request.user)
+        
+        # Send invitation email
+        from .services import InvitationEmailService
+        email_sent = InvitationEmailService.send_invitation_email(invitation)
+        
+        if not email_sent:
+            logger.warning(f"Failed to send invitation email for invitation {invitation.id}")
+            # Note: We don't fail the request if email fails, just log it
+    
+    @action(detail=True, methods=['post'])
+    def resend(self, request, pk=None):
+        """Resend an invitation email."""
+        invitation = self.get_object()
+        
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'Can only resend pending invitations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if invitation.is_expired():
+            return Response(
+                {'error': 'Cannot resend expired invitation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Send invitation email
+        from .services import InvitationEmailService
+        email_sent = InvitationEmailService.send_invitation_email(invitation)
+        
+        if email_sent:
+            return Response({'message': 'Invitation resent successfully'})
+        else:
+            return Response(
+                {'error': 'Failed to send invitation email'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['patch'])
+    def revoke(self, request, pk=None):
+        """Revoke an invitation."""
+        invitation = self.get_object()
+        
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'Can only revoke pending invitations'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        invitation.mark_as_revoked()
+        
+        return Response({'message': 'Invitation revoked successfully'})
+
+class InvitationAcceptanceView(viewsets.GenericViewSet):
+    """
+    API endpoint for accepting invitations.
+    This is separate from the main viewset because it doesn't require authentication.
+    """
+    permission_classes = [permissions.AllowAny]  # No auth required for acceptance
+    serializer_class = AcceptInvitationSerializer  # Add default serializer
+    
+    @action(detail=False, methods=['get'], url_path='(?P<token>[^/.]+)')
+    def validate_token(self, request, token=None):
+        """Validate an invitation token and return invitation details."""
+        try:
+            invitation = AccountInvitation.objects.get(token=token)
+            
+            if not invitation.is_valid():
+                if invitation.is_expired():
+                    return Response(
+                        {'error': 'This invitation has expired', 'expired': True},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                else:
+                    return Response(
+                        {'error': 'This invitation is no longer valid', 'invalid': True},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Check if user already exists
+            from platform_users.models import User
+            user_exists = User.objects.filter(email=invitation.email).exists()
+            
+            return Response({
+                'valid': True,
+                'email': invitation.email,
+                'account_name': invitation.account.account_name,
+                'role': invitation.get_role_display(),
+                'specialty': invitation.specialty.name if invitation.specialty else None,
+                'personal_message': invitation.personal_message,
+                'user_exists': user_exists,
+                'expires_at': invitation.expires_at
+            })
+            
+        except AccountInvitation.DoesNotExist:
+            return Response(
+                {'error': 'Invalid invitation token'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=False, methods=['post'])
+    def accept(self, request, **kwargs):
+        """Accept an invitation."""
+        serializer = AcceptInvitationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        invitation = serializer.validated_data['invitation']
+        
+        with transaction.atomic():
+            # Check if user exists or create new user
+            if 'existing_user' in serializer.validated_data:
+                user = serializer.validated_data['existing_user']
+            else:
+                # Create new user
+                from platform_users.models import User
+                user = User.objects.create_user(
+                    email=invitation.email,
+                    first_name=serializer.validated_data['first_name'],
+                    last_name=serializer.validated_data['last_name'],
+                    id_type=serializer.validated_data['id_type'],
+                    id_number=serializer.validated_data['id_number'],
+                    password=serializer.validated_data['password']
+                )
+            
+            # Create AccountUser relationship
+            account_user = AccountUser.objects.create(
+                user=user,
+                account=invitation.account,
+                role=invitation.role,
+                specialty=invitation.specialty,
+                is_active_in_account=True
+            )
+            
+            # Mark invitation as accepted
+            invitation.mark_as_accepted(user)
+            
+            # Send welcome email
+            from .services import InvitationEmailService
+            InvitationEmailService.send_welcome_email(user, invitation.account)
+        
+        return Response({
+            'message': 'Invitation accepted successfully',
+            'user_id': user.id,
+            'account_id': str(invitation.account.account_id),
+            'role': invitation.role
+        }, status=status.HTTP_201_CREATED)
