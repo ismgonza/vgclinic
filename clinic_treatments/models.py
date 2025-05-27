@@ -94,7 +94,8 @@ class TreatmentNote(models.Model):
     Multiple notes can be added per treatment
     """
     NOTE_TYPE_CHOICES = [
-        ('DOCTOR', _('Doctor Note')),
+        # ('GENERAL', _('GENERAL Note')),
+        ('MEDICAL', _('MEDICAL Note')),
         ('BILLING', _('Billing Note')),
         ('RESCHEDULE', _('Reschedule Note')),
     ]
@@ -102,7 +103,7 @@ class TreatmentNote(models.Model):
     treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE, related_name='additional_notes', verbose_name=_('treatment'))
     date = models.DateTimeField(_('date'), default=timezone.now)
     note = models.TextField(_('note'))
-    type = models.CharField(_('type'), max_length=20, choices=NOTE_TYPE_CHOICES, default='DOCTOR')  # Move type field up
+    type = models.CharField(_('type'), max_length=20, choices=NOTE_TYPE_CHOICES, default='MEDICAL')  # Move type field up
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name=_('created by'))
 
     def __str__(self):

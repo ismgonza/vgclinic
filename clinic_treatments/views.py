@@ -5,10 +5,10 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from platform_accounts.models import Account, AccountUser
 from platform_users.models import User
-from .models import Treatment, TreatmentNote, TreatmentDetail
+from .models import Treatment, TreatmentNote, TreatmentDetail, TreatmentScheduleHistory
 from .serializers import (
-    TreatmentSerializer, TreatmentCreateSerializer, 
-    TreatmentNoteSerializer, TreatmentDetailSerializer
+    TreatmentSerializer, TreatmentCreateSerializer, TreatmentUpdateSerializer,
+    TreatmentNoteSerializer, TreatmentDetailSerializer, TreatmentScheduleHistorySerializer
 )
 
 class TreatmentViewSet(viewsets.ModelViewSet):
@@ -31,7 +31,6 @@ class TreatmentViewSet(viewsets.ModelViewSet):
         if account:
             # Filter treatments by specialty's account (since treatments are linked to catalog items, which are linked to specialties, which are linked to accounts)
             queryset = queryset.filter(specialty__account=account)
-            print(f"DEBUG: Filtered queryset count = {queryset.count()}")
         else:
             print("DEBUG: No account context - showing all treatments")
         
@@ -45,8 +44,10 @@ class TreatmentViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_serializer_class(self):
-        if self.action == 'create' or self.action == 'update':
+        if self.action == 'create':
             return TreatmentCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return TreatmentUpdateSerializer
         return TreatmentSerializer
     
     def get_account_context(self):
@@ -78,19 +79,23 @@ class TreatmentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
         
+    def update(self, request, *args, **kwargs):
+        # Get the treatment instance
+        instance = self.get_object()        
+        # Get the serializer
+        serializer = self.get_serializer(instance, data=request.data, partial=True)        
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
     @action(detail=False, methods=['get'])
     def form_options(self, request):
         """Get all options needed for treatment forms"""
         try:
             # Get account context
             account = self.get_account_context()
-            
-            # DEBUG: Print account context
-            account_header = self.request.headers.get('X-Account-Context')
-            print(f"DEBUG: form_options X-Account-Context header = {account_header}")
-            print(f"DEBUG: form_options resolved account = {account}")
-            if account:
-                print(f"DEBUG: form_options account name = {account.account_name}")
             
             if account:
                 # Get doctors from the specific account
@@ -111,12 +116,9 @@ class TreatmentViewSet(viewsets.ModelViewSet):
                 
                 # Combine doctors and owners
                 all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
-                
-                print(f"DEBUG: form_options doctors count = {all_doctors.count()}")
-                
+                                
             else:
                 # Fallback: Get doctors from all accounts the user has access to
-                print("DEBUG: form_options no account context - using fallback")
                 user_accounts = AccountUser.objects.filter(
                     user=request.user,
                     is_active_in_account=True
@@ -150,7 +152,6 @@ class TreatmentViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
-            print(f"DEBUG: form_options error = {str(e)}")
             return Response({'error': str(e)}, status=500)
     
     @action(detail=True, methods=['post'])
@@ -205,7 +206,6 @@ class TreatmentNoteViewSet(viewsets.ModelViewSet):
         if account:
             # Filter treatment notes by the treatment's specialty's account
             queryset = queryset.filter(treatment__specialty__account=account)
-            print(f"DEBUG: TreatmentNote filtered queryset count = {queryset.count()}")
         else:
             print("DEBUG: TreatmentNote - No account context - showing all notes")
         
@@ -259,7 +259,6 @@ class TreatmentDetailViewSet(viewsets.ModelViewSet):
         if account:
             # Filter treatment details by the treatment's specialty's account
             queryset = queryset.filter(treatment__specialty__account=account)
-            print(f"DEBUG: TreatmentDetail filtered queryset count = {queryset.count()}")
         else:
             print("DEBUG: TreatmentDetail - No account context - showing all details")
         
