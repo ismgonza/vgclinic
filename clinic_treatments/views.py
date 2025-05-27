@@ -3,7 +3,7 @@ from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from platform_accounts.models import Account, AccountUser
+from platform_accounts.models import Account, AccountOwner, AccountUser
 from platform_users.models import User
 from .models import Treatment, TreatmentNote, TreatmentDetail, TreatmentScheduleHistory
 from .serializers import (
@@ -64,6 +64,14 @@ class TreatmentViewSet(viewsets.ModelViewSet):
             if self.request.user.is_staff or self.request.user.is_superuser:
                 return account
             else:
+                # Check if user is an owner of this account
+                if AccountOwner.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active=True
+                ).exists():
+                    return account
+                
                 # Check if user is a member of this account
                 if AccountUser.objects.filter(
                     user=self.request.user,
@@ -97,51 +105,110 @@ class TreatmentViewSet(viewsets.ModelViewSet):
             # Get account context
             account = self.get_account_context()
             
+            # Get specialty filter parameter
+            specialty_id = request.query_params.get('specialty_id', None)
+            
             if account:
-                # Get doctors from the specific account
-                doctors = User.objects.filter(
-                    account_memberships__account=account,
-                    account_memberships__role__id='doc',
-                    account_memberships__is_active_in_account=True,
-                    is_active=True
-                ).distinct()
-                
-                # Also include owners as potential doctors
-                owners = User.objects.filter(
-                    account_memberships__account=account,
-                    account_memberships__role__id='own',
-                    account_memberships__is_active_in_account=True,
-                    is_active=True
-                ).distinct()
-                
-                # Combine doctors and owners
-                all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
+                if specialty_id:
+                    # When specialty is specified, get doctors who practice that specialty
+                    doctors = User.objects.filter(
+                        account_memberships__account=account,
+                        account_memberships__role='doc',
+                        account_memberships__specialty_id=specialty_id,
+                        account_memberships__is_active_in_account=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Get owners who ALSO have doctor role for this specialty
+                    specialty_qualified_owners = User.objects.filter(
+                        owned_accounts__account=account,
+                        owned_accounts__is_active=True,
+                        account_memberships__account=account,
+                        account_memberships__role='doc',
+                        account_memberships__specialty_id=specialty_id,
+                        account_memberships__is_active_in_account=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Combine specialty doctors and specialty-qualified owners
+                    all_doctors = doctors.union(specialty_qualified_owners).order_by('first_name', 'last_name')
+                else:
+                    # No specialty filter - get all doctors
+                    doctors = User.objects.filter(
+                        account_memberships__account=account,
+                        account_memberships__role='doc',
+                        account_memberships__is_active_in_account=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Get all owners (since no specialty restriction)
+                    owners = User.objects.filter(
+                        owned_accounts__account=account,
+                        owned_accounts__is_active=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Combine doctors and owners
+                    all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
                                 
             else:
                 # Fallback: Get doctors from all accounts the user has access to
-                user_accounts = AccountUser.objects.filter(
+                # Get accounts where user is owner
+                owned_accounts = AccountOwner.objects.filter(
+                    user=request.user,
+                    is_active=True
+                ).values_list('account', flat=True)
+                
+                # Get accounts where user is member
+                member_accounts = AccountUser.objects.filter(
                     user=request.user,
                     is_active_in_account=True
                 ).values_list('account', flat=True)
                 
-                # Get all users who are doctors in these accounts
-                doctors = User.objects.filter(
-                    account_memberships__account__in=user_accounts,
-                    account_memberships__role__id='doc',
-                    account_memberships__is_active_in_account=True,
-                    is_active=True
-                ).distinct()
+                # Combine both account lists
+                user_accounts = list(owned_accounts) + list(member_accounts)
                 
-                # Also include owners as potential doctors
-                owners = User.objects.filter(
-                    account_memberships__account__in=user_accounts,
-                    account_memberships__role__id='own',
-                    account_memberships__is_active_in_account=True,
-                    is_active=True
-                ).distinct()
-                
-                # Combine doctors and owners
-                all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
+                if specialty_id:
+                    # Filter by specialty when specified
+                    doctors = User.objects.filter(
+                        account_memberships__account__in=user_accounts,
+                        account_memberships__role='doc',
+                        account_memberships__specialty_id=specialty_id,
+                        account_memberships__is_active_in_account=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Get owners who also have doctor role for this specialty
+                    specialty_qualified_owners = User.objects.filter(
+                        owned_accounts__account__in=user_accounts,
+                        owned_accounts__is_active=True,
+                        account_memberships__account__in=user_accounts,
+                        account_memberships__role='doc',
+                        account_memberships__specialty_id=specialty_id,
+                        account_memberships__is_active_in_account=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Combine specialty doctors and specialty-qualified owners
+                    all_doctors = doctors.union(specialty_qualified_owners).order_by('first_name', 'last_name')
+                else:
+                    # No specialty filter - get all doctors
+                    doctors = User.objects.filter(
+                        account_memberships__account__in=user_accounts,
+                        account_memberships__role='doc',
+                        account_memberships__is_active_in_account=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Get all owners (since no specialty restriction)
+                    owners = User.objects.filter(
+                        owned_accounts__account__in=user_accounts,
+                        owned_accounts__is_active=True,
+                        is_active=True
+                    ).distinct()
+                    
+                    # Combine doctors and owners
+                    all_doctors = doctors.union(owners).order_by('first_name', 'last_name')
             
             # Serialize the data
             from platform_users.serializers import UserSerializer
@@ -225,6 +292,14 @@ class TreatmentNoteViewSet(viewsets.ModelViewSet):
             if self.request.user.is_staff or self.request.user.is_superuser:
                 return account
             else:
+                # Check if user is an owner of this account
+                if AccountOwner.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active=True
+                ).exists():
+                    return account
+                
                 # Check if user is a member of this account
                 if AccountUser.objects.filter(
                     user=self.request.user,
@@ -278,6 +353,14 @@ class TreatmentDetailViewSet(viewsets.ModelViewSet):
             if self.request.user.is_staff or self.request.user.is_superuser:
                 return account
             else:
+                # Check if user is an owner of this account
+                if AccountOwner.objects.filter(
+                    user=self.request.user,
+                    account=account,
+                    is_active=True
+                ).exists():
+                    return account
+                
                 # Check if user is a member of this account
                 if AccountUser.objects.filter(
                     user=self.request.user,

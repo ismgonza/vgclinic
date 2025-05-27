@@ -50,34 +50,46 @@ class Account(models.Model):
         verbose_name_plural = _('Accounts')
         ordering = ['account_name']
 
-class Role(models.Model):
-    """Model representing user roles within accounts."""
+class AccountOwner(models.Model):
+    """Model representing account ownership - separate from operational roles."""
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='owned_accounts',
+        verbose_name=_('User')
+    )
+    account = models.ForeignKey(
+        Account, 
+        on_delete=models.CASCADE, 
+        related_name='owners',
+        verbose_name=_('Account')
+    )
+    is_active = models.BooleanField(
+        _('Active Owner'), 
+        default=True,
+        help_text=_('Indicates if this ownership is currently active')
+    )
+    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+    
+    class Meta:
+        verbose_name = _('Account Owner')
+        verbose_name_plural = _('Account Owners')
+        unique_together = ['user', 'account']  # A user can only be owner once per account
+        ordering = ['account', 'user']
+    
+    def __str__(self):
+        return f"{self.user} - Owner of {self.account}"
+
+class AccountUser(models.Model):
+    """Model representing operational roles of users within accounts."""
     ROLE_CHOICES = [
-        ('own', _('Owner')),
         ('adm', _('Administrator')),
         ('doc', _('Doctor')),
         ('ast', _('Assistant')),
         ('rdo', _('Read Only')),
     ]
     
-    id = models.CharField(
-        max_length=3, 
-        primary_key=True, 
-        choices=ROLE_CHOICES,
-        verbose_name=_('Role ID')
-    )
-    role_name = models.CharField(_('Role Name'), max_length=50)
-    role_description = models.TextField(_('Description'))
-    
-    def __str__(self):
-        return self.role_name
-    
-    class Meta:
-        verbose_name = _('Role')
-        verbose_name_plural = _('Roles')
-
-class AccountUser(models.Model):
-    """Model representing the relationship between users and accounts."""
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
         User, 
@@ -91,10 +103,19 @@ class AccountUser(models.Model):
         related_name='members',
         verbose_name=_('Account')
     )
-    role = models.ForeignKey(
-        Role, 
-        on_delete=models.PROTECT,  # Protect to prevent role deletion if users have it
-        verbose_name=_('Role')
+    role = models.CharField(
+        _('Role'),
+        max_length=3,
+        choices=ROLE_CHOICES
+    )
+    specialty = models.ForeignKey(
+        'clinic_catalog.Specialty',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='account_users',
+        verbose_name=_('Specialty'),
+        help_text=_('Specialty this user practices in this account (required for doctors)')
     )
     color = models.CharField(
         _('Color'), 
@@ -119,9 +140,8 @@ class AccountUser(models.Model):
     class Meta:
         verbose_name = _('Account User')
         verbose_name_plural = _('Account Users')
-        # Ensure a user can only have one active relationship with an account
-        unique_together = ['user', 'account']
+        # Allow multiple roles per user per account - NO unique constraint
         ordering = ['account', 'role', 'user']
     
     def __str__(self):
-        return f"{self.user} - {self.account} ({self.role})"
+        return f"{self.user} - {self.account} ({self.get_role_display()})"
