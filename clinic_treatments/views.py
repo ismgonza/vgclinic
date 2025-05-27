@@ -99,6 +99,50 @@ class TreatmentViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
     @action(detail=False, methods=['get'])
+    def user_role_info(self, request):
+        """Get current user's role information in the selected account"""
+        try:
+            account = self.get_account_context()
+            
+            if not account:
+                return Response({'error': 'No account context'}, status=400)
+            
+            # Check if user is a doctor in this account
+            user_is_doctor = AccountUser.objects.filter(
+                user=request.user,
+                account=account,
+                role='doc',
+                is_active_in_account=True
+            ).exists()
+            
+            # Check if user is an owner (owners can act as doctors)
+            user_is_owner = AccountOwner.objects.filter(
+                user=request.user,
+                account=account,
+                is_active=True
+            ).exists()
+            
+            # Get user's roles in this account
+            user_roles = list(AccountUser.objects.filter(
+                user=request.user,
+                account=account,
+                is_active_in_account=True
+            ).values_list('role', flat=True))
+            
+            if user_is_owner:
+                user_roles.append('owner')
+            
+            return Response({
+                'is_doctor': user_is_doctor or user_is_owner,
+                'is_owner': user_is_owner,
+                'roles': user_roles,
+                'user_id': request.user.id
+            })
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+    @action(detail=False, methods=['get'])
     def form_options(self, request):
         """Get all options needed for treatment forms"""
         try:
@@ -238,12 +282,46 @@ class TreatmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def add_note(self, request, pk=None):
-    
         treatment = self.get_object()
         
         # Add the treatment ID to the request data before validation
         note_data = request.data.copy()
         note_data['treatment'] = treatment.id
+        
+        # Handle doctor assignment for medical notes
+        if note_data.get('type') == 'MEDICAL':
+            # Check if current user is a doctor in this account
+            account = self.get_account_context()
+            user_is_doctor = False
+            
+            if account:
+                # Check if user is a doctor in this account
+                user_is_doctor = AccountUser.objects.filter(
+                    user=request.user,
+                    account=account,
+                    role='doc',
+                    is_active_in_account=True
+                ).exists()
+                
+                # Also check if user is an owner (owners can act as doctors)
+                user_is_owner = AccountOwner.objects.filter(
+                    user=request.user,
+                    account=account,
+                    is_active=True
+                ).exists()
+                
+                user_is_doctor = user_is_doctor or user_is_owner
+            
+            if user_is_doctor:
+                # Auto-assign to current user (doctor)
+                note_data['assigned_doctor'] = request.user.id
+            else:
+                # Non-doctor must specify assigned doctor
+                if not note_data.get('assigned_doctor'):
+                    return Response(
+                        {'assigned_doctor': ['This field is required for medical notes when you are not a doctor.']}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
         
         serializer = TreatmentNoteSerializer(data=note_data)
         

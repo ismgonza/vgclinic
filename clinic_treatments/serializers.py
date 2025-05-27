@@ -14,10 +14,12 @@ class TreatmentDetailSerializer(serializers.ModelSerializer):
 
 class TreatmentNoteSerializer(serializers.ModelSerializer):
     created_by_details = UserSerializer(source='created_by', read_only=True)
+    assigned_doctor_details = UserSerializer(source='assigned_doctor', read_only=True)
     
     class Meta:
         model = TreatmentNote
-        fields = ('id', 'treatment', 'date', 'note', 'type', 'created_by', 'created_by_details')
+        fields = ('id', 'treatment', 'date', 'note', 'type', 'created_by', 'created_by_details', 
+                  'assigned_doctor', 'assigned_doctor_details')
         read_only_fields = ('created_by',)
 
 class TreatmentScheduleHistorySerializer(serializers.ModelSerializer):
