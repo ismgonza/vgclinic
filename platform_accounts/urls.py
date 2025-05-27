@@ -1,4 +1,4 @@
-# platform_accounts/urls.py
+# Updated platform_accounts/urls.py
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -14,6 +14,7 @@ router = DefaultRouter()
 router.register(r'', AccountViewSet, basename='account')  # Keep your original setup
 router.register(r'owners', AccountOwnerViewSet)
 router.register(r'account-users', AccountUserViewSet)
+router.register(r'members', AccountUserViewSet, basename='members')
 router.register(r'invitations', AccountInvitationViewSet)
 
 # Separate pattern for invitation acceptance (no auth required)
