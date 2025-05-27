@@ -1,7 +1,5 @@
-# Updated platform_accounts/urls.py
-
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+# platform_accounts/urls.py - COMPLETE WORKING CONFIGURATION
+from django.urls import path
 from .views import (
     AccountViewSet, 
     AccountUserViewSet, 
@@ -10,24 +8,59 @@ from .views import (
     InvitationAcceptanceView
 )
 
-router = DefaultRouter()
-router.register(r'', AccountViewSet, basename='account')  # Keep your original setup
-router.register(r'owners', AccountOwnerViewSet)
-router.register(r'account-users', AccountUserViewSet)
-router.register(r'members', AccountUserViewSet, basename='members')
-router.register(r'invitations', AccountInvitationViewSet)
-
-# Separate pattern for invitation acceptance (no auth required)
-invitation_acceptance = InvitationAcceptanceView.as_view({
-    'get': 'validate_token',
-    'post': 'accept'
-})
-
+# Explicit patterns that WORK
 urlpatterns = [
-    # PUBLIC URLs FIRST (no authentication required)
-    path('accept-invitation/<str:token>/', invitation_acceptance, name='accept-invitation-token'),
-    path('accept-invitation/', invitation_acceptance, name='accept-invitation'),
+    # PUBLIC URLs FIRST (no auth required)
+    path('accept-invitation/<str:token>/', InvitationAcceptanceView.as_view({
+        'get': 'validate_token',
+        'post': 'accept'
+    }), name='accept-invitation-token'),
+    path('accept-invitation/', InvitationAcceptanceView.as_view({
+        'get': 'validate_token',
+        'post': 'accept'
+    }), name='accept-invitation'),
     
-    # AUTHENTICATED URLs SECOND 
-    path('', include(router.urls)),
+    # ACCOUNT OWNERS
+    path('owners/', AccountOwnerViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='owners-list'),
+    path('owners/<int:pk>/', AccountOwnerViewSet.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='owners-detail'),
+    
+    # TEAM MEMBERS
+    path('members/', AccountUserViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='members-list'),
+    path('members/<int:pk>/', AccountUserViewSet.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='members-detail'),
+    
+    # INVITATIONS
+    path('invitations/', AccountInvitationViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='invitations-list'),
+    path('invitations/<int:pk>/', AccountInvitationViewSet.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='invitations-detail'),
+    
+    # BASE ACCOUNTS
+    path('', AccountViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='accounts-list'),
+    path('<str:pk>/', AccountViewSet.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='accounts-detail'),
 ]

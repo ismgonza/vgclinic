@@ -118,7 +118,13 @@ class AccountUserViewSet(viewsets.ModelViewSet):
     
     def get_account_context(self):
         """Get and validate account context from request header - following your exact pattern"""
+        print(f"=== DEBUG: get_account_context called ===")
+        print(f"Request method: {self.request.method}")
+        print(f"Request path: {self.request.path}")
+        print(f"Headers: {dict(self.request.headers)}")
+        
         account_id = self.request.headers.get('X-Account-Context')
+        print(f"Account ID from header: {account_id}")
         
         if not account_id:
             return None
@@ -151,6 +157,8 @@ class AccountUserViewSet(viewsets.ModelViewSet):
             return None
 
     def get_queryset(self):
+        print(f"=== DEBUG: AccountUserViewSet.get_queryset called ===")
+        print(f"User: {self.request.user}")
         # Get account context from headers first
         account = self.get_account_context()
         
