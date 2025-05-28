@@ -1,3 +1,5 @@
+# platform_accounts/models.py
+
 import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -104,7 +106,7 @@ class AccountUser(models.Model):
         ('ast', _('Assistant')),
         ('rdo', _('Read Only')),
     ]
-    
+
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
         User, 
@@ -155,41 +157,19 @@ class AccountUser(models.Model):
     class Meta:
         verbose_name = _('Account User')
         verbose_name_plural = _('Account Users')
-        # Allow multiple roles per user per account - NO unique constraint
         ordering = ['account', 'role', 'user']
     
     def __str__(self):
         return f"{self.user} - {self.account} ({self.get_role_display()})"
     
-    def has_authorization(self, authorization_type):
-        """
-        Check if this user has a specific authorization in this account.
-        Returns True if user has the authorization OR is an account owner.
-        """
-        # Check if user is an owner (owners have all permissions)
-        if AccountOwner.objects.filter(
-            user=self.user, 
-            account=self.account, 
-            is_active=True
-        ).exists():
-            return True
-        
-        # Check for specific authorization
-        from django.utils import timezone
-        from django.db import models as django_models
-        return AccountAuthorization.objects.filter(
-            user=self.user,
-            account=self.account,
-            authorization_type=authorization_type,
-            is_active=True
-        ).filter(
-            django_models.Q(expires_at__isnull=True) | django_models.Q(expires_at__gt=timezone.now())
-        ).exists()
-
+    # SIMPLIFIED - Only ONE permission checking method
     @classmethod
-    def user_has_authorization(cls, user, account, authorization_type):
+    def user_has_permission(cls, user, account, permission_type):
         """
-        Class method to check if a user has authorization without needing an AccountUser instance.
+        Unified permission check that considers:
+        1. Account ownership (owners have all permissions)
+        2. Role-based default permissions  
+        3. Individual permission overrides
         """
         # Check if user is an owner (owners have all permissions)
         if AccountOwner.objects.filter(
@@ -199,34 +179,48 @@ class AccountUser(models.Model):
         ).exists():
             return True
         
-        # Check for specific authorization
+        # Check if user is even a member of this account
+        try:
+            account_user = cls.objects.get(
+                user=user,
+                account=account,
+                is_active_in_account=True
+            )
+        except cls.DoesNotExist:
+            return False
+        
+        # Check individual permissions first (these override role defaults)
         from django.utils import timezone
         from django.db import models as django_models
-        return AccountAuthorization.objects.filter(
+        
+        if AccountAuthorization.objects.filter(
             user=user,
             account=account,
-            authorization_type=authorization_type,
+            authorization_type=permission_type,
             is_active=True
         ).filter(
-            django_models.Q(expires_at__isnull=True) | django_models.Q(expires_at__gt=timezone.now())
+            django_models.Q(expires_at__isnull=True) | 
+            django_models.Q(expires_at__gt=timezone.now())
+        ).exists():
+            return True
+        
+        # Check role-based default permissions
+        return RolePermission.objects.filter(
+            role=account_user.role,
+            permission_type=permission_type,
+            is_active=True
         ).exists()
+    
+    # Instance method for convenience
+    def has_permission(self, permission_type):
+        """Check if this user has a specific permission in this account."""
+        return self.user_has_permission(self.user, self.account, permission_type)
 
 class AccountAuthorization(models.Model):
     """
     Model representing specific authorizations granted to users within accounts.
     This allows account owners to grant granular permissions beyond basic roles.
     """
-    
-    # Define available authorization types
-    AUTHORIZATION_TYPES = [
-        ('invite_users', _('Invite Users')),
-        ('manage_users', _('Manage Users')),
-        ('manage_locations', _('Manage Locations')),
-        ('manage_catalog', _('Manage Catalog')),
-        ('view_reports', _('View Reports')),
-        ('manage_billing', _('Manage Billing')),
-        # Add more authorization types as needed
-    ]
     
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
@@ -244,7 +238,7 @@ class AccountAuthorization(models.Model):
     authorization_type = models.CharField(
         _('Authorization Type'),
         max_length=50,
-        choices=AUTHORIZATION_TYPES
+        # Note: choices will be handled dynamically in forms/admin
     )
     granted_by = models.ForeignKey(
         User,
@@ -274,22 +268,66 @@ class AccountAuthorization(models.Model):
     class Meta:
         verbose_name = _('Account Authorization')
         verbose_name_plural = _('Account Authorizations')
-        unique_together = ['user', 'account', 'authorization_type']  # One authorization per type per user per account
+        unique_together = ['user', 'account', 'authorization_type']
         ordering = ['account', 'authorization_type', 'user']
     
     def __str__(self):
-        return f"{self.user} - {self.account} ({self.get_authorization_type_display()})"
+        return f"{self.user} - {self.account} ({self.authorization_type})"
     
     def is_expired(self):
         """Check if this authorization has expired."""
         if self.expires_at is None:
             return False
-        from django.utils import timezone
         return timezone.now() > self.expires_at
     
     def is_valid(self):
         """Check if this authorization is currently valid."""
         return self.is_active and not self.is_expired()
+
+# Also update RolePermission to use the centralized registry
+class RolePermission(models.Model):
+    """
+    Default permissions assigned to each role.
+    This defines what permissions each role gets by default.
+    """
+    ROLE_CHOICES = [
+        ('adm', _('Administrator')),
+        ('doc', _('Doctor')),
+        ('ast', _('Assistant')),
+        ('rdo', _('Read Only')),
+    ]
+    
+    @staticmethod
+    def get_permission_choices():
+        from .permissions import get_all_permissions
+        return get_all_permissions()
+    
+    id = models.BigAutoField(primary_key=True)
+    role = models.CharField(
+        _('Role'),
+        max_length=3,
+        choices=ROLE_CHOICES
+    )
+    permission_type = models.CharField(
+        _('Permission Type'),
+        max_length=50,
+        # Note: choices will be handled dynamically in forms/admin
+    )
+    is_active = models.BooleanField(
+        _('Active'), 
+        default=True,
+        help_text=_('Whether this role permission is currently active')
+    )
+    created_at = models.DateTimeField(_('Created At'), auto_now_add=True)
+    
+    class Meta:
+        verbose_name = _('Role Permission')
+        verbose_name_plural = _('Role Permissions')
+        unique_together = ['role', 'permission_type']
+        ordering = ['role', 'permission_type']
+    
+    def __str__(self):
+        return f"{self.get_role_display()} - {self.permission_type}"
     
 class AccountInvitation(models.Model):
     """
@@ -465,3 +503,4 @@ class AccountInvitation(models.Model):
             base_url = 'http://localhost:5173'
             
         return f"{base_url}/accept-invitation/{self.token}"
+    

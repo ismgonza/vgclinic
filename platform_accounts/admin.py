@@ -1,6 +1,6 @@
 # platform_accounts/admin.py
 from django.contrib import admin
-from .models import Account, AccountOwner, AccountUser, AccountAuthorization, AccountInvitation
+from .models import Account, AccountOwner, AccountUser, AccountAuthorization, AccountInvitation, RolePermission
 
 @admin.register(Account)
 class AccountAdmin(admin.ModelAdmin):
@@ -25,8 +25,8 @@ class AccountUserAdmin(admin.ModelAdmin):
     
 @admin.register(AccountAuthorization)
 class AccountAuthorizationAdmin(admin.ModelAdmin):
-    list_display = ('user', 'account', 'authorization_type', 'granted_by', 'is_active', 'expires_at', 'granted_at')
-    list_filter = ('authorization_type', 'is_active', 'granted_at', 'expires_at')
+    list_display = ('user', 'account', 'authorization_type', 'get_auth_display', 'granted_by', 'is_active', 'granted_at', 'expires_at')
+    list_filter = ('authorization_type', 'is_active', 'granted_at', 'account')
     search_fields = ('user__email', 'user__first_name', 'user__last_name', 'account__account_name')
     ordering = ('-granted_at',)
     
@@ -63,6 +63,15 @@ class AccountAuthorizationAdmin(admin.ModelAdmin):
         if not change or not obj.granted_by:
             obj.granted_by = request.user
         super().save_model(request, obj, form, change)
+
+    def get_auth_display(self, obj):
+        return obj.get_authorization_type_display()
+    get_auth_display.short_description = 'Permission Name'
+    
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['title'] = 'Individual User Permissions'
+        return super().changelist_view(request, extra_context)
 
 @admin.register(AccountInvitation)
 class AccountInvitationAdmin(admin.ModelAdmin):
@@ -149,3 +158,55 @@ class AccountInvitationAdmin(admin.ModelAdmin):
         queryset.filter(status='pending').update(status='expired')
         self.message_user(request, f'{count} invitations were marked as expired.')
     mark_as_expired.short_description = "Mark selected invitations as expired"
+    
+@admin.register(RolePermission)
+class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ['role', 'get_permission_display', 'is_active', 'created_at']
+    list_filter = ['role', 'is_active', 'created_at']
+    search_fields = ['permission_type']
+    ordering = ['role', 'permission_type']
+    
+    def get_permission_display(self, obj):
+        """Display the permission type with proper formatting."""
+        # Get the display name from the centralized registry
+        from .permissions import PERMISSION_REGISTRY
+        
+        # Search through all categories for this permission
+        for category_data in PERMISSION_REGISTRY.values():
+            if obj.permission_type in category_data['permissions']:
+                return category_data['permissions'][obj.permission_type]
+        
+        # Fallback to the permission key if not found
+        return obj.permission_type.replace('_', ' ').title()
+    
+    get_permission_display.short_description = 'Permission'
+    get_permission_display.admin_order_field = 'permission_type'
+
+
+from django import forms
+
+class RolePermissionForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set choices dynamically from centralized registry
+        from .permissions import get_all_permissions
+        self.fields['permission_type'].widget = forms.Select(choices=get_all_permissions())
+    
+    class Meta:
+        model = RolePermission
+        fields = '__all__'
+
+class AccountAuthorizationForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set choices dynamically from centralized registry
+        from .permissions import get_all_permissions
+        self.fields['authorization_type'].widget = forms.Select(choices=get_all_permissions())
+    
+    class Meta:
+        model = AccountAuthorization
+        fields = '__all__'
+
+# Update the admin classes to use the forms:
+RolePermissionAdmin.form = RolePermissionForm
+AccountAuthorizationAdmin.form = AccountAuthorizationForm

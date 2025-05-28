@@ -1,6 +1,6 @@
 # platform_accounts/serializers.py
 from rest_framework import serializers
-from .models import Account, AccountOwner, AccountUser, AccountInvitation
+from .models import Account, AccountOwner, AccountUser, AccountInvitation, AccountAuthorization
 from platform_users.serializers import UserSerializer
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -171,3 +171,76 @@ class AcceptInvitationSerializer(serializers.Serializer):
         
         data['invitation'] = invitation
         return data
+    
+class AccountAuthorizationSerializer(serializers.ModelSerializer):
+    """Serializer for individual account authorizations."""
+    user_details = UserSerializer(source='user', read_only=True)
+    granted_by_details = UserSerializer(source='granted_by', read_only=True)
+    authorization_display = serializers.CharField(source='get_authorization_type_display', read_only=True)
+    is_valid = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AccountAuthorization
+        fields = ('id', 'user', 'account', 'authorization_type', 'authorization_display',
+                  'granted_by', 'is_active', 'granted_at', 'expires_at', 'notes',
+                  'user_details', 'granted_by_details', 'is_valid')
+        read_only_fields = ('id', 'granted_at', 'granted_by')
+    
+    def get_is_valid(self, obj):
+        return obj.is_valid()
+
+class UserPermissionsSerializer(serializers.Serializer):
+    """Serializer for managing a user's permissions within an account."""
+    user_id = serializers.IntegerField()
+    account_id = serializers.UUIDField()
+    permissions = serializers.ListField(
+        child=serializers.CharField(max_length=50),
+        help_text="List of authorization_type values to grant to the user"
+    )
+    notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    
+    def validate_user_id(self, value):
+        """Validate that the user exists."""
+        from platform_users.models import User
+        try:
+            User.objects.get(id=value)
+            return value
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User does not exist.")
+    
+    def validate_account_id(self, value):
+        """Validate that the account exists."""
+        try:
+            Account.objects.get(account_id=value)
+            return value
+        except Account.DoesNotExist:
+            raise serializers.ValidationError("Account does not exist.")
+    
+    def validate_permissions(self, value):
+        """Validate that all permissions are valid authorization types."""
+        # FIXED: Import from centralized registry
+        from .permissions import get_all_permissions
+        valid_permissions = [choice[0] for choice in get_all_permissions()]
+        invalid_permissions = [p for p in value if p not in valid_permissions]
+        
+        if invalid_permissions:
+            raise serializers.ValidationError(
+                f"Invalid permissions: {', '.join(invalid_permissions)}. "
+                f"Valid options are: {', '.join(valid_permissions)}"
+            )
+        
+        return value
+
+class UserPermissionsSummarySerializer(serializers.Serializer):
+    """Serializer for getting a summary of user permissions."""
+    user_id = serializers.IntegerField(read_only=True)
+    user_details = UserSerializer(read_only=True)
+    role = serializers.CharField(read_only=True)
+    role_display = serializers.CharField(read_only=True)
+    is_owner = serializers.BooleanField(read_only=True)
+    permissions = serializers.ListField(
+        child=serializers.CharField(),
+        read_only=True,
+        help_text="List of authorization types this user has"
+    )
+    permission_details = AccountAuthorizationSerializer(many=True, read_only=True)

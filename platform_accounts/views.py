@@ -3,8 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets, permissions, status
 from django.db import models, transaction
-from .models import Account, AccountOwner, AccountUser, AccountInvitation
-from .serializers import AccountSerializer, AccountOwnerSerializer, AccountUserSerializer, AccountInvitationSerializer, CreateInvitationSerializer, AcceptInvitationSerializer
+from core.permissions import AccountPermissionMixin
+from .models import Account, AccountOwner, AccountUser, AccountInvitation, AccountAuthorization
+from .serializers import (AccountSerializer, AccountOwnerSerializer, AccountUserSerializer, 
+                          AccountInvitationSerializer, CreateInvitationSerializer, 
+                          AcceptInvitationSerializer, AccountAuthorizationSerializer,
+                          UserPermissionsSerializer, UserPermissionsSummarySerializer)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -108,7 +112,7 @@ class AccountOwnerViewSet(viewsets.ModelViewSet):
             models.Q(account__account_id__in=owned_accounts)
         )
 
-class AccountUserViewSet(viewsets.ModelViewSet):
+class AccountUserViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     """
     API endpoint that allows account users to be viewed or edited.
     """
@@ -116,46 +120,6 @@ class AccountUserViewSet(viewsets.ModelViewSet):
     serializer_class = AccountUserSerializer
     permission_classes = [permissions.IsAuthenticated, IsAccountMemberOrAdmin]
     
-    def get_account_context(self):
-        """Get and validate account context from request header - following your exact pattern"""
-        print(f"=== DEBUG: get_account_context called ===")
-        print(f"Request method: {self.request.method}")
-        print(f"Request path: {self.request.path}")
-        print(f"Headers: {dict(self.request.headers)}")
-        
-        account_id = self.request.headers.get('X-Account-Context')
-        print(f"Account ID from header: {account_id}")
-        
-        if not account_id:
-            return None
-            
-        try:
-            account = Account.objects.get(account_id=account_id)
-            
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is an owner of this account
-                if AccountOwner.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active=True
-                ).exists():
-                    return account
-                
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
-
     def get_queryset(self):
         print(f"=== DEBUG: AccountUserViewSet.get_queryset called ===")
         print(f"User: {self.request.user}")
@@ -192,47 +156,31 @@ class AccountUserViewSet(viewsets.ModelViewSet):
             models.Q(account__account_id__in=manageable_accounts)
         ).select_related('user', 'specialty')
         
-class AccountInvitationViewSet(viewsets.ModelViewSet):
+    @action(detail=True, methods=['patch'])
+    def deactivate(self, request, pk=None):
+        """Deactivate a team member."""
+        account_user = self.get_object()
+        account_user.is_active_in_account = False
+        account_user.save()
+        
+        return Response({'message': 'Team member deactivated successfully'})
+
+    @action(detail=True, methods=['patch'])
+    def reactivate(self, request, pk=None):
+        """Reactivate a team member."""
+        account_user = self.get_object()
+        account_user.is_active_in_account = True
+        account_user.save()
+        
+        return Response({'message': 'Team member reactivated successfully'})
+        
+class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     """
     API endpoint for managing account invitations.
     """
     queryset = AccountInvitation.objects.all()
     serializer_class = AccountInvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
-        
-        if not account_id:
-            return None
-            
-        try:
-            account = Account.objects.get(account_id=account_id)
-            
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is an owner of this account
-                if AccountOwner.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active=True
-                ).exists():
-                    return account
-                
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
     
     def get_queryset(self):
         """Filter invitations based on user permissions and account context."""
@@ -284,7 +232,7 @@ class AccountInvitationViewSet(viewsets.ModelViewSet):
             is_active=True
         ).exists()
         
-        has_permission = AccountUser.user_has_authorization(
+        has_permission = AccountUser.user_has_permission(
             self.request.user, 
             account, 
             'invite_users'
@@ -449,3 +397,328 @@ class InvitationAcceptanceView(viewsets.GenericViewSet):
             'account_id': str(invitation.account.account_id),
             'role': invitation.role
         }, status=status.HTTP_201_CREATED)
+        
+class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
+    """
+    API endpoint for managing user permissions within accounts.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def check_permission_management_access(self, account):
+        """Check if user can manage permissions for this account."""
+        if self.request.user.is_staff or self.request.user.is_superuser:
+            return True
+            
+        # Check if user is owner
+        if AccountOwner.objects.filter(
+            user=self.request.user,
+            account=account,
+            is_active=True
+        ).exists():
+            return True
+        
+        # FIXED: Use the new permission method
+        return AccountUser.user_has_permission(
+            self.request.user,
+            account,
+            'manage_permissions'
+        )
+    
+    @action(detail=False, methods=['get'])
+    def available_permissions(self, request):
+        """Get list of all available permissions."""
+        from .permissions import get_all_permissions
+        
+        permissions = [
+            {
+                'key': key,
+                'display': str(display),
+                'category': self.get_permission_category(key)
+            }
+            for key, display in get_all_permissions()
+        ]
+        
+        return Response({
+            'permissions': permissions,
+            'categories': {
+                'patient': 'Patient Management',
+                'treatment': 'Treatment Management', 
+                'catalog': 'Location & Catalog Management',
+                'team': 'Team & Administration',
+                'appointments': 'Appointments & Scheduling',
+                'billing': 'Financial & Billing',
+                'reports': 'Reports & Analytics'
+            }
+        })
+    
+    def get_permission_category(self, permission_key):
+        """Categorize permissions for better UI organization."""
+        if permission_key.startswith(('view_patient', 'manage_patient')):
+            return 'patient'
+        elif permission_key.startswith(('view_treatment', 'manage_treatment')):
+            return 'treatment'
+        elif permission_key.startswith(('view_catalog', 'manage_catalog', 'manage_location', 'manage_procedure')):
+            return 'catalog'
+        elif permission_key.startswith(('view_team', 'invite_user', 'manage_user', 'remove_user', 'manage_permission')):
+            return 'team'
+        elif permission_key.startswith(('view_appointment', 'manage_appointment', 'manage_schedule')):
+            return 'appointment'
+        elif permission_key.startswith(('view_billing', 'manage_billing', 'view_financial', 'manage_pricing')):
+            return 'billing'
+        elif permission_key.startswith(('view_report', 'view_analytics', 'export_report')):
+            return 'report'
+        else:
+            return 'other'
+    
+    @action(detail=False, methods=['get'])
+    def users_permissions(self, request):
+        """Get permissions summary for all users in the account."""
+        account = self.get_account_context()
+        if not account:
+            return Response(
+                {'error': 'Account context required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not self.check_permission_management_access(account):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get all users in this account
+        account_users = AccountUser.objects.filter(
+            account=account,
+            is_active_in_account=True
+        ).select_related('user', 'specialty')
+        
+        users_data = []
+        for account_user in account_users:
+            # Check if user is owner
+            is_owner = AccountOwner.objects.filter(
+                user=account_user.user,
+                account=account,
+                is_active=True
+            ).exists()
+            
+            # Get user's explicit permissions
+            user_permissions = AccountAuthorization.objects.filter(
+                user=account_user.user,
+                account=account,
+                is_active=True
+            )
+            
+            # Get permission keys
+            permission_keys = []
+            role_permissions = []
+            individual_permissions = []
+            
+            if is_owner:
+                from .permissions import get_all_permissions
+                permission_keys = [key for key, _ in get_all_permissions()]
+                role_permissions = permission_keys  # Owners have all as "role"
+            else:
+                # Get role-based permissions
+                from .models import RolePermission
+                role_perms = RolePermission.objects.filter(
+                    role=account_user.role,
+                    is_active=True
+                ).values_list('permission_type', flat=True)
+                role_permissions = list(role_perms)
+                
+                # Get individual permissions (explicitly granted)
+                individual_perms = [
+                    auth.authorization_type 
+                    for auth in user_permissions 
+                    if auth.is_valid()
+                ]
+                individual_permissions = individual_perms
+                
+                # Combine both
+                permission_keys = list(set(role_permissions + individual_permissions))
+
+            # Add to the user data:
+            users_data.append({
+                'user_id': account_user.user.id,
+                'user_details': {
+                    'id': account_user.user.id,
+                    'email': account_user.user.email,
+                    'first_name': account_user.user.first_name,
+                    'last_name': account_user.user.last_name,
+                    'full_name': account_user.user.get_full_name(),
+                },
+                'role': account_user.role,
+                'role_display': account_user.get_role_display(),
+                'is_owner': is_owner,
+                'permissions': permission_keys,
+                'role_permissions': role_permissions,
+                'individual_permissions': individual_permissions,
+                'permission_details': AccountAuthorizationSerializer(user_permissions, many=True).data
+            })
+        
+        return Response({'users': users_data})
+    
+    @action(detail=False, methods=['post'])
+    def update_user_permissions(self, request):
+        """Update permissions for a specific user."""
+        account = self.get_account_context()
+        if not account:
+            return Response(
+                {'error': 'Account context required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not self.check_permission_management_access(account):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = UserPermissionsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user_id = serializer.validated_data['user_id']
+        permissions = serializer.validated_data['permissions']
+        notes = serializer.validated_data.get('notes', '')
+        
+        # Verify user is in this account
+        try:
+            from platform_users.models import User
+            user = User.objects.get(id=user_id)
+            account_user = AccountUser.objects.get(
+                user=user,
+                account=account,
+                is_active_in_account=True
+            )
+        except (User.DoesNotExist, AccountUser.DoesNotExist):
+            return Response(
+                {'error': 'User not found in this account'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user is owner (can't modify owner permissions this way)
+        is_owner = AccountOwner.objects.filter(
+            user=user,
+            account=account,
+            is_active=True
+        ).exists()
+        
+        if is_owner:
+            return Response(
+                {'error': 'Cannot modify permissions for account owners'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        with transaction.atomic():
+            # Remove existing permissions
+            AccountAuthorization.objects.filter(
+                user=user,
+                account=account
+            ).delete()
+            
+            # Add new permissions
+            for permission_type in permissions:
+                AccountAuthorization.objects.create(
+                    user=user,
+                    account=account,
+                    authorization_type=permission_type,
+                    granted_by=request.user,
+                    is_active=True,
+                    notes=notes
+                )
+        
+        return Response({
+            'message': f'Successfully updated permissions for {user.get_full_name()}',
+            'permissions_granted': permissions
+        })
+    
+    @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
+    def user_permissions(self, request, user_id=None):
+        """Get detailed permissions for a specific user."""
+        account = self.get_account_context()
+        if not account:
+            return Response(
+                {'error': 'Account context required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not self.check_permission_management_access(account):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            from platform_users.models import User
+            user = User.objects.get(id=user_id)
+            account_user = AccountUser.objects.get(
+                user=user,
+                account=account,
+                is_active_in_account=True
+            )
+        except (User.DoesNotExist, AccountUser.DoesNotExist):
+            return Response(
+                {'error': 'User not found in this account'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user is owner
+        is_owner = AccountOwner.objects.filter(
+            user=user,
+            account=account,
+            is_active=True
+        ).exists()
+        
+        # Get user's explicit permissions
+        user_permissions = AccountAuthorization.objects.filter(
+            user=user,
+            account=account,
+            is_active=True
+        )
+        
+        # FIXED: Add the same logic as users_permissions method
+        permission_keys = []
+        role_permissions = []
+        individual_permissions = []
+        
+        if is_owner:
+            from .permissions import get_all_permissions
+            permission_keys = [key for key, _ in get_all_permissions()]
+            role_permissions = permission_keys  # Owners have all as "role"
+        else:
+            # Get role-based permissions
+            from .models import RolePermission
+            role_perms = RolePermission.objects.filter(
+                role=account_user.role,
+                is_active=True
+            ).values_list('permission_type', flat=True)
+            role_permissions = list(role_perms)
+            
+            # Get individual permissions (explicitly granted)
+            individual_perms = [
+                auth.authorization_type 
+                for auth in user_permissions 
+                if auth.is_valid()
+            ]
+            individual_permissions = individual_perms
+            
+            # Combine both
+            permission_keys = list(set(role_permissions + individual_permissions))
+        
+        return Response({
+            'user_id': user.id,
+            'user_details': {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'full_name': user.get_full_name(),
+            },
+            'role': account_user.role,
+            'role_display': account_user.get_role_display(),
+            'is_owner': is_owner,
+            'permissions': permission_keys,
+            'role_permissions': role_permissions,      # ADD THIS
+            'individual_permissions': individual_permissions,  # ADD THIS
+            'permission_details': AccountAuthorizationSerializer(user_permissions, many=True).data
+        })
