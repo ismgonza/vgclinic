@@ -1,9 +1,10 @@
-# platform_accounts/models.py
+# platform_accounts/models.py - Updated to use centralized roles
 
 import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from platform_users.models import User
+from .roles import AccountRoles  # Import centralized roles
 
 import secrets
 from datetime import timedelta
@@ -100,12 +101,9 @@ class AccountOwner(models.Model):
 
 class AccountUser(models.Model):
     """Model representing operational roles of users within accounts."""
-    ROLE_CHOICES = [
-        ('adm', _('Administrator')),
-        ('doc', _('Doctor')),
-        ('ast', _('Assistant')),
-        ('rdo', _('Read Only')),
-    ]
+    
+    # Use centralized role choices
+    ROLE_CHOICES = AccountRoles.ROLE_CHOICES
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
@@ -161,6 +159,10 @@ class AccountUser(models.Model):
     
     def __str__(self):
         return f"{self.user} - {self.account} ({self.get_role_display()})"
+    
+    def get_role_color(self):
+        """Get the color associated with this user's role"""
+        return AccountRoles.get_role_color(self.role)
     
     # SIMPLIFIED - Only ONE permission checking method
     @classmethod
@@ -284,18 +286,13 @@ class AccountAuthorization(models.Model):
         """Check if this authorization is currently valid."""
         return self.is_active and not self.is_expired()
 
-# Also update RolePermission to use the centralized registry
 class RolePermission(models.Model):
     """
     Default permissions assigned to each role.
     This defines what permissions each role gets by default.
     """
-    ROLE_CHOICES = [
-        ('adm', _('Administrator')),
-        ('doc', _('Doctor')),
-        ('ast', _('Assistant')),
-        ('rdo', _('Read Only')),
-    ]
+    # Use centralized role choices
+    ROLE_CHOICES = AccountRoles.ROLE_CHOICES
     
     @staticmethod
     def get_permission_choices():
@@ -358,7 +355,7 @@ class AccountInvitation(models.Model):
     role = models.CharField(
         _('Role'),
         max_length=3,
-        choices=AccountUser.ROLE_CHOICES,
+        choices=AccountRoles.ROLE_CHOICES,  # Use centralized choices
         help_text=_('Role to assign when invitation is accepted')
     )
     specialty = models.ForeignKey(
@@ -429,11 +426,13 @@ class AccountInvitation(models.Model):
         verbose_name = _('Account Invitation')
         verbose_name_plural = _('Account Invitations')
         ordering = ['-created_at']
-        # Allow multiple invitations to same email for same account (in case first expires)
-        # unique_together = ['email', 'account', 'status']  # Commented out for flexibility
     
     def __str__(self):
         return f"Invitation to {self.email} for {self.account} ({self.get_status_display()})"
+    
+    def get_role_color(self):
+        """Get the color associated with this invitation's role"""
+        return AccountRoles.get_role_color(self.role)
     
     def save(self, *args, **kwargs):
         # Generate secure token if not set
@@ -503,4 +502,3 @@ class AccountInvitation(models.Model):
             base_url = 'http://localhost:5173'
             
         return f"{base_url}/accept-invitation/{self.token}"
-    

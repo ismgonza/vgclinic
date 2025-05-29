@@ -1,4 +1,4 @@
-# platform_accounts/views.py
+# platform_accounts/views.py - FIXED VERSION
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets, permissions, status
@@ -8,7 +8,7 @@ from .models import Account, AccountOwner, AccountUser, AccountInvitation, Accou
 from .serializers import (AccountSerializer, AccountOwnerSerializer, AccountUserSerializer, 
                           AccountInvitationSerializer, CreateInvitationSerializer, 
                           AcceptInvitationSerializer, AccountAuthorizationSerializer,
-                          UserPermissionsSerializer, UserPermissionsSummarySerializer)
+                          UserPermissionsSerializer)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -121,8 +121,6 @@ class AccountUserViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAccountMemberOrAdmin]
     
     def get_queryset(self):
-        print(f"=== DEBUG: AccountUserViewSet.get_queryset called ===")
-        print(f"User: {self.request.user}")
         # Get account context from headers first
         account = self.get_account_context()
         
@@ -205,9 +203,9 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         ).values_list('account', flat=True)
         accessible_accounts.extend(owned_accounts)
         
-        # Add accounts where user has invite_users authorization
+        # Add accounts where user has manage_invitations authorization
         for account_user in AccountUser.objects.filter(user=self.request.user, is_active_in_account=True):
-            if account_user.has_authorization('invite_users'):
+            if account_user.has_permission('manage_invitations'):
                 accessible_accounts.append(account_user.account.account_id)
         
         return AccountInvitation.objects.filter(
@@ -225,7 +223,7 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         # Check if user has permission to invite to this account
         account = serializer.validated_data['account']
         
-        # Check if user is owner or has invite_users authorization
+        # Check if user is owner or has manage_invitations authorization
         is_owner = AccountOwner.objects.filter(
             user=self.request.user, 
             account=account, 
@@ -235,7 +233,7 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         has_permission = AccountUser.user_has_permission(
             self.request.user, 
             account, 
-            'invite_users'
+            'manage_invitations'
         )
         
         if not (is_owner or has_permission):
@@ -417,7 +415,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
         ).exists():
             return True
         
-        # FIXED: Use the new permission method
+        # Use the new permission method
         return AccountUser.user_has_permission(
             self.request.user,
             account,
@@ -427,7 +425,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def available_permissions(self, request):
         """Get list of all available permissions."""
-        from .permissions import get_all_permissions
+        from .permissions import get_all_permissions, PERMISSION_CATEGORIES
         
         permissions = [
             {
@@ -438,35 +436,33 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
             for key, display in get_all_permissions()
         ]
         
+        # FIXED: Use the centralized categories
+        categories = {}
+        for category_key, category_name in PERMISSION_CATEGORIES.items():
+            categories[category_key] = str(category_name)
+        
         return Response({
             'permissions': permissions,
-            'categories': {
-                'patient': 'Patient Management',
-                'treatment': 'Treatment Management', 
-                'catalog': 'Location & Catalog Management',
-                'team': 'Team & Administration',
-                'appointments': 'Appointments & Scheduling',
-                'billing': 'Financial & Billing',
-                'reports': 'Reports & Analytics'
-            }
+            'categories': categories
         })
     
     def get_permission_category(self, permission_key):
         """Categorize permissions for better UI organization."""
-        if permission_key.startswith(('view_patient', 'manage_patient')):
+        # UPDATED: More comprehensive categorization based on new permissions
+        if permission_key.startswith(('view_patients', 'manage_patients')):
             return 'patient'
-        elif permission_key.startswith(('view_treatment', 'manage_treatment')):
+        elif permission_key.startswith(('view_treatment', 'create_treatment', 'edit_treatment')):
             return 'treatment'
-        elif permission_key.startswith(('view_catalog', 'manage_catalog', 'manage_location', 'manage_procedure')):
+        elif permission_key.startswith(('view_locations', 'manage_locations', 'view_rooms', 'manage_rooms', 'view_specialties', 'manage_specialties', 'view_procedures', 'manage_procedures')):
             return 'catalog'
-        elif permission_key.startswith(('view_team', 'invite_user', 'manage_user', 'remove_user', 'manage_permission')):
+        elif permission_key.startswith(('view_team', 'manage_team', 'view_invitations', 'manage_invitations', 'view_permissions', 'manage_permissions')):
             return 'team'
-        elif permission_key.startswith(('view_appointment', 'manage_appointment', 'manage_schedule')):
-            return 'appointment'
+        elif permission_key.startswith(('view_appointments', 'manage_appointments', 'manage_schedule')):
+            return 'appointments'
         elif permission_key.startswith(('view_billing', 'manage_billing', 'view_financial', 'manage_pricing')):
             return 'billing'
-        elif permission_key.startswith(('view_report', 'view_analytics', 'export_report')):
-            return 'report'
+        elif permission_key.startswith(('view_reports', 'view_analytics', 'export_reports')):
+            return 'reports'
         else:
             return 'other'
     
@@ -518,13 +514,14 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
                 permission_keys = [key for key, _ in get_all_permissions()]
                 role_permissions = permission_keys  # Owners have all as "role"
             else:
-                # Get role-based permissions
-                from .models import RolePermission
-                role_perms = RolePermission.objects.filter(
-                    role=account_user.role,
-                    is_active=True
-                ).values_list('permission_type', flat=True)
-                role_permissions = list(role_perms)
+                # Get role-based permissions (Custom roles have no defaults)
+                if account_user.role != 'cus':
+                    from .models import RolePermission
+                    role_perms = RolePermission.objects.filter(
+                        role=account_user.role,
+                        is_active=True
+                    ).values_list('permission_type', flat=True)
+                    role_permissions = list(role_perms)
                 
                 # Get individual permissions (explicitly granted)
                 individual_perms = [
@@ -537,7 +534,6 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
                 # Combine both
                 permission_keys = list(set(role_permissions + individual_permissions))
 
-            # Add to the user data:
             users_data.append({
                 'user_id': account_user.user.id,
                 'user_details': {
@@ -676,7 +672,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
             is_active=True
         )
         
-        # FIXED: Add the same logic as users_permissions method
+        # Get permission breakdown
         permission_keys = []
         role_permissions = []
         individual_permissions = []
@@ -686,13 +682,14 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
             permission_keys = [key for key, _ in get_all_permissions()]
             role_permissions = permission_keys  # Owners have all as "role"
         else:
-            # Get role-based permissions
-            from .models import RolePermission
-            role_perms = RolePermission.objects.filter(
-                role=account_user.role,
-                is_active=True
-            ).values_list('permission_type', flat=True)
-            role_permissions = list(role_perms)
+            # Get role-based permissions (Custom roles have no defaults)
+            if account_user.role != 'cus':
+                from .models import RolePermission
+                role_perms = RolePermission.objects.filter(
+                    role=account_user.role,
+                    is_active=True
+                ).values_list('permission_type', flat=True)
+                role_permissions = list(role_perms)
             
             # Get individual permissions (explicitly granted)
             individual_perms = [
@@ -718,7 +715,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
             'role_display': account_user.get_role_display(),
             'is_owner': is_owner,
             'permissions': permission_keys,
-            'role_permissions': role_permissions,      # ADD THIS
-            'individual_permissions': individual_permissions,  # ADD THIS
+            'role_permissions': role_permissions,
+            'individual_permissions': individual_permissions,
             'permission_details': AccountAuthorizationSerializer(user_permissions, many=True).data
         })

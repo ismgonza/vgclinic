@@ -1,6 +1,7 @@
-# platform_accounts/serializers.py
+# platform_accounts/serializers.py - Updated to use centralized roles
 from rest_framework import serializers
 from .models import Account, AccountOwner, AccountUser, AccountInvitation, AccountAuthorization
+from .roles import AccountRoles  # Import centralized roles
 from platform_users.serializers import UserSerializer
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -25,11 +26,12 @@ class AccountUserSerializer(serializers.ModelSerializer):
     user_details = UserSerializer(source='user', read_only=True)
     account_details = AccountSerializer(source='account', read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    role_color = serializers.CharField(source='get_role_color', read_only=True)
     specialty_details = serializers.SerializerMethodField()
     
     class Meta:
         model = AccountUser
-        fields = ('id', 'user', 'account', 'role', 'role_display', 'specialty', 
+        fields = ('id', 'user', 'account', 'role', 'role_display', 'role_color', 'specialty', 
                   'specialty_details', 'color', 'phone_number', 'is_active_in_account', 
                   'created_at', 'user_details', 'account_details')
         read_only_fields = ('id', 'created_at')
@@ -44,6 +46,7 @@ class AccountInvitationSerializer(serializers.ModelSerializer):
     invited_by_details = UserSerializer(source='invited_by', read_only=True)
     account_details = AccountSerializer(source='account', read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    role_color = serializers.CharField(source='get_role_color', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     specialty_details = serializers.SerializerMethodField()
     is_valid = serializers.BooleanField(read_only=True)
@@ -52,11 +55,11 @@ class AccountInvitationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = AccountInvitation
-        fields = ('id', 'email', 'account', 'role', 'role_display', 'specialty', 
-                  'specialty_details', 'status', 'status_display', 'personal_message', 
-                  'notes', 'created_at', 'expires_at', 'accepted_at', 'invited_by',
-                  'invited_by_details', 'account_details', 'is_valid', 'is_expired',
-                  'acceptance_url', 'token')
+        fields = ('id', 'email', 'account', 'role', 'role_display', 'role_color', 
+                  'specialty', 'specialty_details', 'status', 'status_display', 
+                  'personal_message', 'notes', 'created_at', 'expires_at', 'accepted_at', 
+                  'invited_by', 'invited_by_details', 'account_details', 'is_valid', 
+                  'is_expired', 'acceptance_url', 'token')
         read_only_fields = ('id', 'token', 'created_at', 'accepted_at', 'invited_by')
     
     def get_specialty_details(self, obj):
@@ -80,6 +83,14 @@ class CreateInvitationSerializer(serializers.ModelSerializer):
         """Validate email format and check for existing users."""
         # Basic email validation is handled by EmailField
         return value.lower()
+    
+    def validate_role(self, value):
+        """Validate that the role is valid."""
+        if not AccountRoles.is_valid_role(value):
+            raise serializers.ValidationError(
+                f"Invalid role '{value}'. Valid roles are: {', '.join(AccountRoles.ALL_ROLES)}"
+            )
+        return value
     
     def validate(self, data):
         """Validate the invitation data."""
@@ -112,7 +123,7 @@ class CreateInvitationSerializer(serializers.ModelSerializer):
             pass
         
         # If role is doctor, specialty should be recommended but not required
-        if role == 'doc' and not data.get('specialty'):
+        if role == AccountRoles.DOCTOR and not data.get('specialty'):
             # Just a warning, not an error
             pass
         
@@ -218,7 +229,6 @@ class UserPermissionsSerializer(serializers.Serializer):
     
     def validate_permissions(self, value):
         """Validate that all permissions are valid authorization types."""
-        # FIXED: Import from centralized registry
         from .permissions import get_all_permissions
         valid_permissions = [choice[0] for choice in get_all_permissions()]
         invalid_permissions = [p for p in value if p not in valid_permissions]
@@ -237,6 +247,7 @@ class UserPermissionsSummarySerializer(serializers.Serializer):
     user_details = UserSerializer(read_only=True)
     role = serializers.CharField(read_only=True)
     role_display = serializers.CharField(read_only=True)
+    role_color = serializers.CharField(read_only=True)
     is_owner = serializers.BooleanField(read_only=True)
     permissions = serializers.ListField(
         child=serializers.CharField(),
@@ -244,3 +255,19 @@ class UserPermissionsSummarySerializer(serializers.Serializer):
         help_text="List of authorization types this user has"
     )
     permission_details = AccountAuthorizationSerializer(many=True, read_only=True)
+
+# NEW: Roles API Serializer
+class RoleSerializer(serializers.Serializer):
+    """Serializer for role information in API responses."""
+    code = serializers.CharField()
+    display = serializers.CharField()
+    color = serializers.CharField()
+    
+class RolesListSerializer(serializers.Serializer):
+    """Serializer for listing all available roles."""
+    roles = RoleSerializer(many=True, read_only=True)
+    
+    def to_representation(self, instance):
+        return {
+            'roles': AccountRoles.get_roles_for_api()
+        }

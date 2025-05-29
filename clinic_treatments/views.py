@@ -5,13 +5,14 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from platform_accounts.models import Account, AccountOwner, AccountUser
 from platform_users.models import User
+from core.permissions import AccountPermissionMixin
 from .models import Treatment, TreatmentNote, TreatmentDetail, TreatmentScheduleHistory
 from .serializers import (
     TreatmentSerializer, TreatmentCreateSerializer, TreatmentUpdateSerializer,
     TreatmentNoteSerializer, TreatmentDetailSerializer, TreatmentScheduleHistorySerializer
 )
 
-class TreatmentViewSet(viewsets.ModelViewSet):
+class TreatmentViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = Treatment.objects.all()
     serializer_class = TreatmentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -23,16 +24,22 @@ class TreatmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Get account context
         account = self.get_account_context()
+        if not account:
+            return Treatment.objects.none()
 
-        # Start with base queryset
-        queryset = Treatment.objects.all()
-        
-        # Filter by account if we have one
-        if account:
-            # Filter treatments by specialty's account (since treatments are linked to catalog items, which are linked to specialties, which are linked to accounts)
-            queryset = queryset.filter(specialty__account=account)
-        else:
-            print("DEBUG: No account context - showing all treatments")
+        # Check permissions
+        if not self.has_treatment_view_permission(account):
+            return Treatment.objects.none()
+
+        # Start with base queryset filtered by account
+        queryset = Treatment.objects.filter(
+            specialty__account=account
+        ).select_related(
+            'patient', 'catalog_item', 'specialty', 'doctor', 'created_by', 'location'
+        )
+
+        # Apply permission-based filtering
+        queryset = self.apply_treatment_permissions_filter(queryset, account)
         
         # Apply date range filter if provided
         start_date = self.request.query_params.get('start_date', None)
@@ -43,6 +50,51 @@ class TreatmentViewSet(viewsets.ModelViewSet):
         
         return queryset
     
+    def has_treatment_view_permission(self, account):
+        """Check if user has any treatment view permission."""
+        return self.check_permission('view_treatments_list', account) or \
+               self.check_permission('view_treatments_assigned', account)
+    
+    def apply_treatment_permissions_filter(self, queryset, account):
+        """Apply permission-based filtering to treatment queryset."""
+        
+        # If user can view all treatments, return full queryset
+        if self.check_permission('view_treatments_list', account):
+            return queryset
+        
+        # If user can only view assigned treatments
+        if self.check_permission('view_treatments_assigned', account):
+            return queryset.filter(doctor=self.request.user)
+        
+        # No view permissions
+        return queryset.none()
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to check detail permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if user has detail view permission
+        if not self.check_permission('view_treatments_detail', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to view treatment details.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        treatment = self.get_object()
+        
+        # Additional check for assigned-only users
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatments_list', account)):
+            if treatment.doctor != request.user:
+                return Response(
+                    {'error': 'Permission denied. You can only view treatments assigned to you.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        return super().retrieve(request, *args, **kwargs)
+    
     def get_serializer_class(self):
         if self.action == 'create':
             return TreatmentCreateSerializer
@@ -50,53 +102,55 @@ class TreatmentViewSet(viewsets.ModelViewSet):
             return TreatmentUpdateSerializer
         return TreatmentSerializer
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def create(self, request, *args, **kwargs):
+        """Override create to check permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if not account_id:
-            return None
-            
-        try:
-            account = Account.objects.get(account_id=account_id)
-            
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is an owner of this account
-                if AccountOwner.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active=True
-                ).exists():
-                    return account
-                
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        # Check create permission
+        if not self.check_permission('create_treatments', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to create treatments.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().create(request, *args, **kwargs)
     
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-        
     def update(self, request, *args, **kwargs):
-        # Get the treatment instance
-        instance = self.get_object()        
+        """Override update to check permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check edit permission
+        if not self.check_permission('edit_treatments', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to edit treatments.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        treatment = self.get_object()
+        
+        # Additional check for assigned-only users
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatments_list', account)):
+            if treatment.doctor != request.user:
+                return Response(
+                    {'error': 'Permission denied. You can only edit treatments assigned to you.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         # Get the serializer
-        serializer = self.get_serializer(instance, data=request.data, partial=True)        
+        serializer = self.get_serializer(treatment, data=request.data, partial=True)        
         if serializer.is_valid():
             self.perform_update(serializer)
             return Response(serializer.data)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
         
     @action(detail=False, methods=['get'])
     def user_role_info(self, request):
@@ -267,14 +321,58 @@ class TreatmentViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
+        """Mark treatment as completed."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check edit permission
+        if not self.check_permission('edit_treatments', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to modify treatments.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         treatment = self.get_object()
+        
+        # Additional check for assigned-only users
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatments_list', account)):
+            if treatment.doctor != request.user:
+                return Response(
+                    {'error': 'Permission denied. You can only modify treatments assigned to you.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         treatment.complete()
         serializer = self.get_serializer(treatment)
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
+        """Cancel treatment."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check edit permission
+        if not self.check_permission('edit_treatments', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to modify treatments.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         treatment = self.get_object()
+        
+        # Additional check for assigned-only users
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatments_list', account)):
+            if treatment.doctor != request.user:
+                return Response(
+                    {'error': 'Permission denied. You can only modify treatments assigned to you.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         treatment.cancel()
         serializer = self.get_serializer(treatment)
         return Response(serializer.data)
@@ -282,7 +380,28 @@ class TreatmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def add_note(self, request, pk=None):
+        """Add a note to treatment."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check create note permission
+        if not self.check_permission('create_treatment_notes', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to create treatment notes.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         treatment = self.get_object()
+        
+        # Additional check for assigned-only users
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatments_list', account)):
+            if treatment.doctor != request.user:
+                return Response(
+                    {'error': 'Permission denied. You can only add notes to treatments assigned to you.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
         
         # Add the treatment ID to the request data before validation
         note_data = request.data.copy()
@@ -291,7 +410,6 @@ class TreatmentViewSet(viewsets.ModelViewSet):
         # Handle doctor assignment for medical notes
         if note_data.get('type') == 'MEDICAL':
             # Check if current user is a doctor in this account
-            account = self.get_account_context()
             user_is_doctor = False
             
             if account:
@@ -331,7 +449,7 @@ class TreatmentViewSet(viewsets.ModelViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class TreatmentNoteViewSet(viewsets.ModelViewSet):
+class TreatmentNoteViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = TreatmentNote.objects.all()
     serializer_class = TreatmentNoteSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -340,60 +458,78 @@ class TreatmentNoteViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date']
     
     def get_queryset(self):
-        """Filter notes by account context"""
-        # Get account context
+        """Filter notes by account context and permissions."""
         account = self.get_account_context()
+        if not account:
+            return TreatmentNote.objects.none()
 
-        # Start with base queryset
-        queryset = TreatmentNote.objects.all()
+        # Check if user has permission to view treatment notes
+        if not (self.check_permission('view_treatment_notes_list', account) or 
+                self.check_permission('view_treatments_assigned', account)):
+            return TreatmentNote.objects.none()
+
+        # Start with base queryset filtered by account
+        queryset = TreatmentNote.objects.filter(
+            treatment__specialty__account=account
+        ).select_related('treatment', 'created_by', 'assigned_doctor')
         
-        # Filter by account if we have one
-        if account:
-            # Filter treatment notes by the treatment's specialty's account
-            queryset = queryset.filter(treatment__specialty__account=account)
-        else:
-            print("DEBUG: TreatmentNote - No account context - showing all notes")
+        # Apply permission-based filtering
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatment_notes_list', account)):
+            # User can only see notes from treatments assigned to them
+            queryset = queryset.filter(treatment__doctor=self.request.user)
         
         return queryset
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to check detail permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if not account_id:
-            return None
-            
-        try:
-            account = Account.objects.get(account_id=account_id)
-            
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is an owner of this account
-                if AccountOwner.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active=True
-                ).exists():
-                    return account
-                
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        # Check detail permission
+        if not self.check_permission('view_treatment_notes_detail', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to view treatment note details.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().retrieve(request, *args, **kwargs)
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to check permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check create permission
+        if not self.check_permission('create_treatment_notes', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to create treatment notes.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check edit permission
+        if not self.check_permission('edit_treatment_notes', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to edit treatment notes.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().update(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-class TreatmentDetailViewSet(viewsets.ModelViewSet):
+class TreatmentDetailViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = TreatmentDetail.objects.all()
     serializer_class = TreatmentDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -401,52 +537,70 @@ class TreatmentDetailViewSet(viewsets.ModelViewSet):
     filterset_fields = ['treatment', 'field_name']
     
     def get_queryset(self):
-        """Filter treatment details by account context"""
-        # Get account context
+        """Filter treatment details by account context and permissions."""
         account = self.get_account_context()
+        if not account:
+            return TreatmentDetail.objects.none()
 
-        # Start with base queryset
-        queryset = TreatmentDetail.objects.all()
+        # Check if user has permission to view treatment history
+        if not (self.check_permission('view_treatment_history_list', account) or 
+                self.check_permission('view_treatments_assigned', account)):
+            return TreatmentDetail.objects.none()
+
+        # Start with base queryset filtered by account
+        queryset = TreatmentDetail.objects.filter(
+            treatment__specialty__account=account
+        ).select_related('treatment')
         
-        # Filter by account if we have one
-        if account:
-            # Filter treatment details by the treatment's specialty's account
-            queryset = queryset.filter(treatment__specialty__account=account)
-        else:
-            print("DEBUG: TreatmentDetail - No account context - showing all details")
+        # Apply permission-based filtering
+        if (self.check_permission('view_treatments_assigned', account) and 
+            not self.check_permission('view_treatment_history_list', account)):
+            # User can only see details from treatments assigned to them
+            queryset = queryset.filter(treatment__doctor=self.request.user)
         
         return queryset
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to check detail permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if not account_id:
-            return None
-            
-        try:
-            account = Account.objects.get(account_id=account_id)
-            
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is an owner of this account
-                if AccountOwner.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active=True
-                ).exists():
-                    return account
-                
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        # Check detail permission
+        if not self.check_permission('view_treatment_history_detail', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to view treatment history details.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().retrieve(request, *args, **kwargs)
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to check permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check create permission
+        if not self.check_permission('create_treatment_history', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to create treatment history.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check permissions."""
+        account = self.get_account_context()
+        if not account:
+            return Response({'error': 'Account context required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check edit permission
+        if not self.check_permission('edit_treatment_history', account):
+            return Response(
+                {'error': 'Permission denied. You do not have permission to edit treatment history.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().update(request, *args, **kwargs)
