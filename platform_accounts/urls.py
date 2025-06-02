@@ -34,6 +34,9 @@ urlpatterns = [
     path('permissions/user/<int:user_id>/', AccountPermissionViewSet.as_view({
         'get': 'user_permissions'
     }), name='permissions-user-detail'),
+    path('permissions/my-permissions/', AccountPermissionViewSet.as_view({
+        'get': 'my_permissions'
+    }), name='permissions-my-permissions'),
     
     # ACCOUNT OWNERS
     path('owners/', AccountOwnerViewSet.as_view({

@@ -638,7 +638,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if not self.check_permission_management_access(account):
+        if str(user_id) != str(request.user.id) and not self.check_permission_management_access(account):
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN
@@ -718,4 +718,78 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
             'role_permissions': role_permissions,
             'individual_permissions': individual_permissions,
             'permission_details': AccountAuthorizationSerializer(user_permissions, many=True).data
+        })
+        
+    @action(detail=False, methods=['get'], url_path='my-permissions')
+    def my_permissions(self, request):
+        """Get current user's own permissions - no special permissions required."""
+        account = self.get_account_context()
+        if not account:
+            return Response(
+                {'error': 'Account context required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = request.user
+        
+        try:
+            account_user = AccountUser.objects.get(
+                user=user,
+                account=account,
+                is_active_in_account=True
+            )
+        except AccountUser.DoesNotExist:
+            return Response(
+                {'error': 'User not found in this account'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user is owner
+        is_owner = AccountOwner.objects.filter(
+            user=user,
+            account=account,
+            is_active=True
+        ).exists()
+        
+        # Get user's explicit permissions
+        user_permissions = AccountAuthorization.objects.filter(
+            user=user,
+            account=account,
+            is_active=True
+        )
+        
+        # Get permission breakdown
+        permission_keys = []
+        role_permissions = []
+        individual_permissions = []
+        
+        if is_owner:
+            from .permissions import get_all_permissions
+            permission_keys = [key for key, _ in get_all_permissions()]
+            role_permissions = permission_keys  # Owners have all as "role"
+        else:
+            # Get role-based permissions (Custom roles have no defaults)
+            if account_user.role != 'cus':
+                from .permissions import get_default_permissions_for_role
+                role_permissions = get_default_permissions_for_role(account_user.role)
+            
+            # Get individual permissions (explicitly granted)
+            individual_perms = [
+                auth.authorization_type 
+                for auth in user_permissions 
+                if auth.is_valid()
+            ]
+            individual_permissions = individual_perms
+            
+            # Combine both
+            permission_keys = list(set(role_permissions + individual_permissions))
+        
+        return Response({
+            'user_id': user.id,
+            'role': account_user.role,
+            'role_display': account_user.get_role_display(),
+            'is_owner': is_owner,
+            'permissions': permission_keys,
+            'role_permissions': role_permissions,
+            'individual_permissions': individual_permissions,
         })

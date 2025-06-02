@@ -148,19 +148,15 @@ class PatientAccessMixin:
             
         # No access
         return base_queryset.none()
-    
+        
     def can_view_patient_detail(self, account=None):
-        """Check if user can access individual patient details."""
-        return self.check_permission('view_patient_detail', account)
-    
+        return self.check_permission('view_patients_detail', account)
+
     def can_access_patient_history(self, account=None):
-        """Check if user can access sensitive patient history."""
-        return self.check_permission('view_patient_history', account)
-    
+        return self.check_permission('view_patients_history', account)
+
     def can_manage_patient_basic(self, account=None):
-        """Check if user can create/edit basic patient info."""
-        return self.check_permission('manage_patient_basic', account)
-    
+        return self.check_permission('manage_patients_basic', account)
+
     def can_manage_patient_history(self, account=None):
-        """Check if user can create/edit patient medical history."""
-        return self.check_permission('manage_patient_history', account)
+        return self.check_permission('manage_patients_history', account)

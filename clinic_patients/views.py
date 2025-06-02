@@ -1,4 +1,4 @@
-# clinic_patients/views.py
+# clinic_patients/views.py - FIXED permission names to match permissions.py
 from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -36,7 +36,7 @@ class PatientViewSet(AccountPermissionMixin, PatientAccessMixin, viewsets.ModelV
                     clinic_memberships__account__in=user_accounts
                 ).distinct()
         
-        # FIXED: Use correct permission name
+        # FIXED: Use consistent permission name from permissions.py
         if not self.check_permission('view_patients_list', account):
             return Patient.objects.none()
         
@@ -54,33 +54,33 @@ class PatientViewSet(AccountPermissionMixin, PatientAccessMixin, viewsets.ModelV
         return PatientSerializer
     
     def create(self, request, *args, **kwargs):
-        """Override create to check manage_patient_basic permission."""
+        """Override create to check manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # FIXED: Use correct permission name
-        permission_error = self.require_permission('manage_patient_basic', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
             
         return super().create(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
-        """Override update to check manage_patient_basic permission."""
+        """Override update to check manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # FIXED: Use correct permission name
-        permission_error = self.require_permission('manage_patient_basic', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
             
         return super().update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
-        """Override destroy to check manage_patient_basic permission."""
+        """Override destroy to check manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # FIXED: Use correct permission name  
-        permission_error = self.require_permission('manage_patient_basic', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
             
@@ -88,13 +88,13 @@ class PatientViewSet(AccountPermissionMixin, PatientAccessMixin, viewsets.ModelV
     
     @action(detail=True, methods=['get'])
     def medical_history(self, request, pk=None):
-        """Get patient medical history - requires view_patient_history permission."""
+        """Get patient medical history - requires view_patients_history permission."""
         account = self.get_account_context()
         
-        # Check permission for sensitive medical data
+        # FIXED: Use consistent permission name from permissions.py
         if not self.can_access_patient_history(account):
             return Response(
-                {'error': 'Permission denied. Required permission: view_patient_history'}, 
+                {'error': 'Permission denied. Required permission: view_patients_history'}, 
                 status=403
             )
         
@@ -118,11 +118,11 @@ class PatientViewSet(AccountPermissionMixin, PatientAccessMixin, viewsets.ModelV
     
     @action(detail=True, methods=['post'])
     def add_phone(self, request, pk=None):
-        """Add phone to patient - requires manage_patients permission."""
+        """Add phone to patient - requires manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # Check permission
-        permission_error = self.require_permission('manage_patients', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
         
@@ -135,11 +135,11 @@ class PatientViewSet(AccountPermissionMixin, PatientAccessMixin, viewsets.ModelV
     
     @action(detail=True, methods=['post'])
     def add_emergency_contact(self, request, pk=None):
-        """Add emergency contact to patient - requires manage_patients permission."""
+        """Add emergency contact to patient - requires manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # Check permission
-        permission_error = self.require_permission('manage_patients', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
         
@@ -152,11 +152,11 @@ class PatientViewSet(AccountPermissionMixin, PatientAccessMixin, viewsets.ModelV
     
     @action(detail=True, methods=['post'])
     def add_to_clinic(self, request, pk=None):
-        """Add patient to clinic - requires manage_patients permission."""
+        """Add patient to clinic - requires manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # Check permission
-        permission_error = self.require_permission('manage_patients', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
         
@@ -183,8 +183,8 @@ class PatientAccountViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         account = self.get_account_context()
         
-        # Check permission
-        if account and not self.check_permission('view_patients', account):
+        # FIXED: Use consistent permission name from permissions.py
+        if account and not self.check_permission('view_patients_list', account):
             return PatientAccount.objects.none()
         
         if account:
@@ -201,11 +201,11 @@ class PatientAccountViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
                 return PatientAccount.objects.filter(account__in=user_accounts)
     
     def create(self, request, *args, **kwargs):
-        """Override create to check manage_patients permission."""
+        """Override create to check manage_patients_basic permission."""
         account = self.get_account_context()
         
-        # Check permission
-        permission_error = self.require_permission('manage_patients', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_basic', account)
         if permission_error:
             return permission_error
             
@@ -213,11 +213,11 @@ class PatientAccountViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def add_medical_history(self, request, pk=None):
-        """Add medical history - requires manage_patients permission."""
+        """Add medical history - requires manage_patients_history permission."""
         account = self.get_account_context()
         
-        # Check permission
-        permission_error = self.require_permission('manage_patients', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_history', account)
         if permission_error:
             return permission_error
         
@@ -235,8 +235,8 @@ class MedicalHistoryViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         account = self.get_account_context()
         
-        # Check permission for sensitive medical data
-        if account and not self.check_permission('view_patient_history', account):
+        # FIXED: Use consistent permission name from permissions.py
+        if account and not self.check_permission('view_patients_history', account):
             return MedicalHistory.objects.none()
         
         if account:
@@ -253,11 +253,11 @@ class MedicalHistoryViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
                 return MedicalHistory.objects.filter(patient_account__account__in=user_accounts)
     
     def create(self, request, *args, **kwargs):
-        """Override create to check manage_patients permission."""
+        """Override create to check manage_patients_history permission."""
         account = self.get_account_context()
         
-        # Check permission
-        permission_error = self.require_permission('manage_patients', account)
+        # FIXED: Use consistent permission name from permissions.py
+        permission_error = self.require_permission('manage_patients_history', account)
         if permission_error:
             return permission_error
             

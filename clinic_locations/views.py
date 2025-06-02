@@ -18,20 +18,12 @@ class BranchViewSet(viewsets.ModelViewSet):
         # Get account context
         account = self.get_account_context()
         
-        # DEBUG: Print account context
-        account_header = self.request.headers.get('X-Account-Context')
-        print(f"DEBUG: X-Account-Context header = {account_header}")
-        print(f"DEBUG: Resolved account = {account}")
-        if account:
-            print(f"DEBUG: Account name = {account.account_name}")
-        
         # Start with base queryset
         queryset = Branch.objects.all()
         
         # Filter by account if we have one
         if account:
             queryset = queryset.filter(account=account)
-            print(f"DEBUG: Filtered branches count = {queryset.count()}")
         else:
             print("DEBUG: No account context - showing all branches user has access to")
             # Fallback: show branches for accounts the user has access to
@@ -83,13 +75,6 @@ class RoomViewSet(viewsets.ModelViewSet):
         # Get account context
         account = self.get_account_context()
         
-        # DEBUG: Print account context
-        account_header = self.request.headers.get('X-Account-Context')
-        print(f"DEBUG: X-Account-Context header = {account_header}")
-        print(f"DEBUG: Resolved account = {account}")
-        if account:
-            print(f"DEBUG: Account name = {account.account_name}")
-        
         # Start with base queryset
         queryset = Room.objects.all()
         
@@ -97,7 +82,6 @@ class RoomViewSet(viewsets.ModelViewSet):
         if account:
             # Filter rooms by branches that belong to this account
             queryset = queryset.filter(branch__account=account)
-            print(f"DEBUG: Filtered rooms count = {queryset.count()}")
         else:
             print("DEBUG: No account context - showing all rooms user has access to")
             # Fallback: show rooms for accounts the user has access to
