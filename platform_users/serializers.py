@@ -20,11 +20,13 @@ class UserSerializer(serializers.ModelSerializer):
             user.save()
         return user
 
-# NEW: Serializer for profile updates (limited fields)
+# UPDATED: Serializer for profile updates - NOW INCLUDES phone_number
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    
     class Meta:
         model = User
-        fields = ('first_name', 'last_name')
+        fields = ('first_name', 'last_name', 'phone_number')  # Added phone_number
         
     def validate_first_name(self, value):
         if not value or not value.strip():
@@ -35,6 +37,35 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Last name is required.")
         return value.strip()
+    
+    def update(self, instance, validated_data):
+        # Handle phone_number separately since it's in AccountUser, not User
+        phone_number = validated_data.pop('phone_number', None)
+        
+        # Update User fields (first_name, last_name)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update phone_number in AccountUser if provided and we have context
+        if phone_number is not None:
+            request = self.context.get('request')
+            if request:
+                account_id = request.headers.get('X-Account-Context')
+                if account_id:
+                    try:
+                        from platform_accounts.models import AccountUser
+                        account_user = AccountUser.objects.get(
+                            user=instance,
+                            account__account_id=account_id,
+                            is_active_in_account=True
+                        )
+                        account_user.phone_number = phone_number
+                        account_user.save()
+                    except AccountUser.DoesNotExist:
+                        pass  # User not in this account, skip phone update
+        
+        return instance
 
 # NEW: Serializer for password change
 class ChangePasswordSerializer(serializers.Serializer):

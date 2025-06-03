@@ -25,7 +25,8 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         Get current user's profile
         """
-        serializer = ProfileDetailSerializer(request.user)
+        # FIXED: Add context so serializer can access request headers
+        serializer = ProfileDetailSerializer(request.user, context={'request': request})
         return Response(serializer.data)
     
     @action(detail=False, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
@@ -33,16 +34,18 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         Update current user's profile (limited fields)
         """
+        # FIXED: Add context here too so the serializer can access X-Account-Context header
         serializer = ProfileUpdateSerializer(
             request.user, 
             data=request.data, 
-            partial=True
+            partial=True,
+            context={'request': request}  # ← ESTA ES LA LÍNEA CLAVE QUE FALTABA
         )
         
         if serializer.is_valid():
             serializer.save()
-            # Return updated profile
-            profile_serializer = ProfileDetailSerializer(request.user)
+            # Return updated profile - FIXED: Add context here too
+            profile_serializer = ProfileDetailSerializer(request.user, context={'request': request})
             return Response(profile_serializer.data)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -82,30 +85,29 @@ class UserViewSet(viewsets.ModelViewSet):
         
         try:
             # Import here to avoid circular imports
-            from platform_accounts.models import AccountMember
+            from platform_accounts.models import AccountUser
             
-            memberships = AccountMember.objects.filter(
+            memberships = AccountUser.objects.filter(
                 user=user,
-                is_active=True
+                is_active_in_account=True
             ).select_related('account', 'specialty')
             
             memberships_data = []
             for membership in memberships:
                 membership_data = {
-                    'account_id': membership.account.account_id,
+                    'account_id': str(membership.account.account_id),  # Convert UUID to string
                     'account_name': membership.account.account_name,
                     'role': membership.role,
                     'role_display': membership.get_role_display(),
                     'specialty_id': membership.specialty.id if membership.specialty else None,
                     'specialty_name': membership.specialty.name if membership.specialty else None,
                     'joined_date': membership.created_at,
-                    'is_active': membership.is_active,
+                    'is_active': membership.is_active_in_account,
                 }
                 memberships_data.append(membership_data)
             
             return Response(memberships_data)
             
         except Exception as e:
-            # If there's any error (like AccountMember model doesn't exist),
-            # return empty list
+            # If there's any error, return empty list
             return Response([])
