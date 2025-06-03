@@ -1,11 +1,12 @@
-# clinic_catalog/views.py
+# clinic_catalog/views.py - UPDATED with permission checks
 from rest_framework import viewsets, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from platform_accounts.models import Account, AccountUser
+from core.permissions import AccountPermissionMixin
 from .models import Specialty, CatalogItem
 from .serializers import SpecialtySerializer, CatalogItemSerializer
 
-class SpecialtyViewSet(viewsets.ModelViewSet):
+class SpecialtyViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = Specialty.objects.all()
     serializer_class = SpecialtySerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -25,52 +26,58 @@ class SpecialtyViewSet(viewsets.ModelViewSet):
         if account:
             print(f"DEBUG: Account name = {account.account_name}")
         
-        # Start with base queryset
-        queryset = Specialty.objects.all()
-        
-        # Filter by account if we have one
-        if account:
-            queryset = queryset.filter(account=account)
-            print(f"DEBUG: Filtered specialties count = {queryset.count()}")
-        else:
-            print("DEBUG: No account context - showing all specialties user has access to")
-            # Fallback: show specialties for accounts the user has access to
-            if not self.request.user.is_superuser:
+        if not account:
+            # No account context - show specialties from all user's accounts
+            if self.request.user.is_superuser:
+                return Specialty.objects.all()
+            else:
+                print("DEBUG: No account context - showing all specialties user has access to")
                 user_accounts = AccountUser.objects.filter(
                     user=self.request.user,
                     is_active_in_account=True
                 ).values_list('account', flat=True)
-                queryset = queryset.filter(account__in=user_accounts)
+                return Specialty.objects.filter(account__in=user_accounts)
         
+        # Check if user has permission to view specialties
+        if not self.check_permission('view_specialties_list', account):
+            return Specialty.objects.none()
+        
+        # Filter by account if we have one
+        queryset = Specialty.objects.filter(account=account)
+        print(f"DEBUG: Filtered specialties count = {queryset.count()}")
         return queryset
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def create(self, request, *args, **kwargs):
+        """Override create to check manage_specialties permission."""
+        account = self.get_account_context()
         
-        if not account_id:
-            return None
+        permission_error = self.require_permission('manage_specialties', account)
+        if permission_error:
+            return permission_error
             
-        try:
-            account = Account.objects.get(account_id=account_id)
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check manage_specialties permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_specialties', account)
+        if permission_error:
+            return permission_error
             
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to check manage_specialties permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_specialties', account)
+        if permission_error:
+            return permission_error
+            
+        return super().destroy(request, *args, **kwargs)
 
-class CatalogItemViewSet(viewsets.ModelViewSet):
+class CatalogItemViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = CatalogItem.objects.all()
     serializer_class = CatalogItemSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -90,48 +97,53 @@ class CatalogItemViewSet(viewsets.ModelViewSet):
         if account:
             print(f"DEBUG: Account name = {account.account_name}")
         
-        # Start with base queryset
-        queryset = CatalogItem.objects.all()
-        
-        # Filter by account if we have one
-        if account:
-            # Filter catalog items by account
-            queryset = queryset.filter(account=account)
-            print(f"DEBUG: Filtered catalog items count = {queryset.count()}")
-        else:
-            print("DEBUG: No account context - showing all catalog items user has access to")
-            # Fallback: show items for accounts the user has access to
-            if not self.request.user.is_superuser:
+        if not account:
+            # No account context - show catalog items from all user's accounts
+            if self.request.user.is_superuser:
+                return CatalogItem.objects.all()
+            else:
+                print("DEBUG: No account context - showing all catalog items user has access to")
                 user_accounts = AccountUser.objects.filter(
                     user=self.request.user,
                     is_active_in_account=True
                 ).values_list('account', flat=True)
-                queryset = queryset.filter(account__in=user_accounts)
+                return CatalogItem.objects.filter(account__in=user_accounts)
         
+        # Check if user has permission to view procedures (catalog items)
+        if not self.check_permission('view_procedures_list', account):
+            return CatalogItem.objects.none()
+        
+        # Filter catalog items by account
+        queryset = CatalogItem.objects.filter(account=account)
+        print(f"DEBUG: Filtered catalog items count = {queryset.count()}")
         return queryset
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def create(self, request, *args, **kwargs):
+        """Override create to check manage_procedures permission."""
+        account = self.get_account_context()
         
-        if not account_id:
-            return None
+        permission_error = self.require_permission('manage_procedures', account)
+        if permission_error:
+            return permission_error
             
-        try:
-            account = Account.objects.get(account_id=account_id)
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check manage_procedures permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_procedures', account)
+        if permission_error:
+            return permission_error
             
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to check manage_procedures permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_procedures', account)
+        if permission_error:
+            return permission_error
+            
+        return super().destroy(request, *args, **kwargs)

@@ -1,11 +1,13 @@
-# clinic_locations/views.py
-from rest_framework import viewsets, permissions, filters
+# clinic_locations/views.py - UPDATED with permission checks
+from rest_framework import viewsets, permissions, filters, status
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from platform_accounts.models import Account, AccountUser
+from core.permissions import AccountPermissionMixin
 from .models import Branch, Room
 from .serializers import BranchSerializer, RoomSerializer
 
-class BranchViewSet(viewsets.ModelViewSet):
+class BranchViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = Branch.objects.all()
     serializer_class = BranchSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -18,51 +20,55 @@ class BranchViewSet(viewsets.ModelViewSet):
         # Get account context
         account = self.get_account_context()
         
-        # Start with base queryset
-        queryset = Branch.objects.all()
-        
-        # Filter by account if we have one
-        if account:
-            queryset = queryset.filter(account=account)
-        else:
-            print("DEBUG: No account context - showing all branches user has access to")
-            # Fallback: show branches for accounts the user has access to
-            if not self.request.user.is_superuser:
+        if not account:
+            # No account context - show branches from all user's accounts
+            if self.request.user.is_superuser:
+                return Branch.objects.all()
+            else:
                 user_accounts = AccountUser.objects.filter(
                     user=self.request.user,
                     is_active_in_account=True
                 ).values_list('account', flat=True)
-                queryset = queryset.filter(account__in=user_accounts)
+                return Branch.objects.filter(account__in=user_accounts)
         
-        return queryset
+        # Check if user has permission to view locations
+        if not self.check_permission('view_locations_list', account):
+            return Branch.objects.none()
+        
+        # Filter by account if we have one
+        return Branch.objects.filter(account=account)
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def create(self, request, *args, **kwargs):
+        """Override create to check manage_locations permission."""
+        account = self.get_account_context()
         
-        if not account_id:
-            return None
+        permission_error = self.require_permission('manage_locations', account)
+        if permission_error:
+            return permission_error
             
-        try:
-            account = Account.objects.get(account_id=account_id)
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check manage_locations permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_locations', account)
+        if permission_error:
+            return permission_error
             
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to check manage_locations permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_locations', account)
+        if permission_error:
+            return permission_error
+            
+        return super().destroy(request, *args, **kwargs)
 
-class RoomViewSet(viewsets.ModelViewSet):
+class RoomViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -75,48 +81,51 @@ class RoomViewSet(viewsets.ModelViewSet):
         # Get account context
         account = self.get_account_context()
         
-        # Start with base queryset
-        queryset = Room.objects.all()
-        
-        # Filter by account if we have one
-        if account:
-            # Filter rooms by branches that belong to this account
-            queryset = queryset.filter(branch__account=account)
-        else:
-            print("DEBUG: No account context - showing all rooms user has access to")
-            # Fallback: show rooms for accounts the user has access to
-            if not self.request.user.is_superuser:
+        if not account:
+            # No account context - show rooms from all user's accounts
+            if self.request.user.is_superuser:
+                return Room.objects.all()
+            else:
                 user_accounts = AccountUser.objects.filter(
                     user=self.request.user,
                     is_active_in_account=True
                 ).values_list('account', flat=True)
                 branches = Branch.objects.filter(account__in=user_accounts).values_list('id', flat=True)
-                queryset = queryset.filter(branch__in=branches)
+                return Room.objects.filter(branch__in=branches)
         
-        return queryset
+        # Check if user has permission to view rooms
+        if not self.check_permission('view_rooms_list', account):
+            return Room.objects.none()
+        
+        # Filter rooms by branches that belong to this account
+        return Room.objects.filter(branch__account=account)
     
-    def get_account_context(self):
-        """Get and validate account context from request header"""
-        account_id = self.request.headers.get('X-Account-Context')
+    def create(self, request, *args, **kwargs):
+        """Override create to check manage_rooms permission."""
+        account = self.get_account_context()
         
-        if not account_id:
-            return None
+        permission_error = self.require_permission('manage_rooms', account)
+        if permission_error:
+            return permission_error
             
-        try:
-            account = Account.objects.get(account_id=account_id)
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check manage_rooms permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_rooms', account)
+        if permission_error:
+            return permission_error
             
-            # Check if user has access (unless they're staff/superuser)
-            if self.request.user.is_staff or self.request.user.is_superuser:
-                return account
-            else:
-                # Check if user is a member of this account
-                if AccountUser.objects.filter(
-                    user=self.request.user,
-                    account=account,
-                    is_active_in_account=True
-                ).exists():
-                    return account
-                    
-            return None
-        except Account.DoesNotExist:
-            return None
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to check manage_rooms permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_rooms', account)
+        if permission_error:
+            return permission_error
+            
+        return super().destroy(request, *args, **kwargs)

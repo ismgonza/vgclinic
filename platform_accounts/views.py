@@ -125,6 +125,10 @@ class AccountUserViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         account = self.get_account_context()
         
         if account:
+            # Check if user has permission to view team members
+            if not self.check_permission('view_team_members_list', account):
+                return AccountUser.objects.none()
+            
             # Filter by the specific account from headers
             return AccountUser.objects.filter(account=account).select_related('user', 'specialty')
         
@@ -153,10 +157,46 @@ class AccountUserViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
             models.Q(user=self.request.user) | 
             models.Q(account__account_id__in=manageable_accounts)
         ).select_related('user', 'specialty')
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to check manage_team_members permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_team_members', account)
+        if permission_error:
+            return permission_error
+            
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """Override update to check manage_team_members permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_team_members', account)
+        if permission_error:
+            return permission_error
+            
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to check manage_team_members permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_team_members', account)
+        if permission_error:
+            return permission_error
+            
+        return super().destroy(request, *args, **kwargs)
         
     @action(detail=True, methods=['patch'])
     def deactivate(self, request, pk=None):
         """Deactivate a team member."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_team_members', account)
+        if permission_error:
+            return permission_error
+        
         account_user = self.get_object()
         account_user.is_active_in_account = False
         account_user.save()
@@ -166,12 +206,18 @@ class AccountUserViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def reactivate(self, request, pk=None):
         """Reactivate a team member."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_team_members', account)
+        if permission_error:
+            return permission_error
+        
         account_user = self.get_object()
         account_user.is_active_in_account = True
         account_user.save()
         
         return Response({'message': 'Team member reactivated successfully'})
-        
+
 class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     """
     API endpoint for managing account invitations.
@@ -186,6 +232,10 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         account = self.get_account_context()
         
         if account:
+            # Check if user has permission to view invitations
+            if not self.check_permission('view_invitations_list', account):
+                return AccountInvitation.objects.none()
+            
             # Filter by the specific account from headers
             return AccountInvitation.objects.filter(account=account).select_related('account', 'specialty', 'invited_by')
         
@@ -223,7 +273,11 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         # Check if user has permission to invite to this account
         account = serializer.validated_data['account']
         
-        # Check if user is owner or has manage_invitations authorization
+        # Check permission before proceeding
+        if not self.check_permission('manage_invitations', account):
+            raise permissions.PermissionDenied("You don't have permission to invite users to this account.")
+        
+        # Check if user is owner or has manage_invitations authorization (legacy check)
         is_owner = AccountOwner.objects.filter(
             user=self.request.user, 
             account=account, 
@@ -252,9 +306,35 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
         except ImportError:
             logger.warning("InvitationEmailService not available - email not sent")
     
+    def update(self, request, *args, **kwargs):
+        """Override update to check manage_invitations permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_invitations', account)
+        if permission_error:
+            return permission_error
+            
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to check manage_invitations permission."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_invitations', account)
+        if permission_error:
+            return permission_error
+            
+        return super().destroy(request, *args, **kwargs)
+    
     @action(detail=True, methods=['post'])
     def resend(self, request, pk=None):
         """Resend an invitation email."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_invitations', account)
+        if permission_error:
+            return permission_error
+        
         invitation = self.get_object()
         
         if invitation.status != 'pending':
@@ -287,6 +367,12 @@ class AccountInvitationViewSet(AccountPermissionMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def revoke(self, request, pk=None):
         """Revoke an invitation."""
+        account = self.get_account_context()
+        
+        permission_error = self.require_permission('manage_invitations', account)
+        if permission_error:
+            return permission_error
+        
         invitation = self.get_object()
         
         if invitation.status != 'pending':
@@ -395,7 +481,7 @@ class InvitationAcceptanceView(viewsets.GenericViewSet):
             'account_id': str(invitation.account.account_id),
             'role': invitation.role
         }, status=status.HTTP_201_CREATED)
-        
+
 class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
     """
     API endpoint for managing user permissions within accounts.
@@ -415,16 +501,13 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
         ).exists():
             return True
         
-        # Use the new permission method
-        return AccountUser.user_has_permission(
-            self.request.user,
-            account,
-            'manage_permissions'
-        )
+        # Use the permission method to check manage_permissions
+        return self.check_permission('manage_permissions', account)
     
     @action(detail=False, methods=['get'])
     def available_permissions(self, request):
         """Get list of all available permissions."""
+        # No specific permission check needed - this is just metadata
         from .permissions import get_all_permissions, PERMISSION_CATEGORIES
         
         permissions = [
@@ -436,7 +519,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
             for key, display in get_all_permissions()
         ]
         
-        # FIXED: Use the centralized categories
+        # Use the centralized categories
         categories = {}
         for category_key, category_name in PERMISSION_CATEGORIES.items():
             categories[category_key] = str(category_name)
@@ -448,21 +531,20 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
     
     def get_permission_category(self, permission_key):
         """Categorize permissions for better UI organization."""
-        # UPDATED: More comprehensive categorization based on new permissions
         if permission_key.startswith(('view_patients', 'manage_patients')):
-            return 'patient'
+            return 'patient_management'
         elif permission_key.startswith(('view_treatment', 'create_treatment', 'edit_treatment')):
-            return 'treatment'
+            return 'treatment_management'
         elif permission_key.startswith(('view_locations', 'manage_locations', 'view_rooms', 'manage_rooms', 'view_specialties', 'manage_specialties', 'view_procedures', 'manage_procedures')):
-            return 'catalog'
+            return 'catalog_management'
         elif permission_key.startswith(('view_team', 'manage_team', 'view_invitations', 'manage_invitations', 'view_permissions', 'manage_permissions')):
-            return 'team'
+            return 'team_management'
         elif permission_key.startswith(('view_appointments', 'manage_appointments', 'manage_schedule')):
-            return 'appointments'
+            return 'appointment_management'
         elif permission_key.startswith(('view_billing', 'manage_billing', 'view_financial', 'manage_pricing')):
-            return 'billing'
+            return 'billing_management'
         elif permission_key.startswith(('view_reports', 'view_analytics', 'export_reports')):
-            return 'reports'
+            return 'reporting_analytics'
         else:
             return 'other'
     
@@ -476,9 +558,10 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if not self.check_permission_management_access(account):
+        # Check if user has permission to view permissions
+        if not self.check_permission('view_permissions_list', account):
             return Response(
-                {'error': 'Permission denied'},
+                {'error': 'Permission denied. You need "view_permissions_list" permission to view user permissions.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -566,7 +649,7 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
         
         if not self.check_permission_management_access(account):
             return Response(
-                {'error': 'Permission denied'},
+                {'error': 'Permission denied. You need "manage_permissions" permission to update user permissions.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -638,11 +721,13 @@ class AccountPermissionViewSet(AccountPermissionMixin, viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if str(user_id) != str(request.user.id) and not self.check_permission_management_access(account):
-            return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # Check if user is viewing their own permissions OR has permission to view others
+        if str(user_id) != str(request.user.id):
+            if not self.check_permission('view_permissions_detail', account):
+                return Response(
+                    {'error': 'Permission denied. You need "view_permissions_detail" permission to view other users\' permissions.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
         
         try:
             from platform_users.models import User

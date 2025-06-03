@@ -1,4 +1,4 @@
-# clinic_treatments/views.py
+# clinic_treatments/views.py - UPDATED with consistent permission checks
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response

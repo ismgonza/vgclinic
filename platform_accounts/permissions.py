@@ -82,7 +82,7 @@ AVAILABLE_PERMISSIONS = [
 PERMISSION_CATEGORIES = {
     'patient_management': _('Patient Management'),
     'treatment_management': _('Treatment Management'),
-    'location_management': _('Location Management'),
+    'location_management': _('Location Management'), 
     'catalog_management': _('Catalog Management'),
     'team_management': _('Team Management'),
     'appointment_management': _('Appointment Management'),
